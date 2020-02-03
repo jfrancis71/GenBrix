@@ -16,7 +16,8 @@ class Binary(Distribution):
     def loss( self, array, samples ):
         tp = tf.broadcast_to( array, samples.shape )
         loss = tf.nn.sigmoid_cross_entropy_with_logits( logits=tp, labels = samples )
-        return tf.math.reduce_sum( loss )
+#You want the sum across YxXxC so you can compare different losses, but average across batch.
+        return tf.math.reduce_mean( tf.math.reduce_sum( loss, axis = [ 1, 2, 3 ] ) )
     def sample( self, array ):
         return np.random.binomial( 1, tf.math.sigmoid( array ) )
 
@@ -26,7 +27,7 @@ class RealGauss(Distribution):
     def loss( self, array, samples ):
         reshape = reshape_array( array, samples, 2 )
         loss = -log_normal_pdf( samples, reshape[:,:,:,:,0], reshape[:,:,:,:,1] )
-        return tf.math.reduce_sum( loss )
+        return tf.math.reduce_mean( tf.math.reduce_sum( loss, axis = [ 1,2,3] ) )
     def sample( self, array ):
         array_shape = tf.shape( array )
         no_image_channels = tf.math.floordiv( array_shape[2], 2 )
@@ -43,8 +44,8 @@ class Discrete(Distribution):
         scale_input = tf.multiply( samples, scale_const )
         rounds = tf.cast( tf.clip_by_value( tf.round( scale_input ), 0, 9 ), tf.int64 )
         cross = tf.nn.sparse_softmax_cross_entropy_with_logits( rounds, broad_discrete )
-        mean_cross = tf.math.reduce_sum( cross )
-        return mean_cross
+        loss = tf.math.reduce_mean( tf.math.reduce_sum( cross, axis = [ 1,2, 3 ] ) )
+        return loss
     def sample( self, array ):
         array_shape = tf.shape( array )
         no_image_channels = tf.math.floordiv( array_shape[2], 10 )
@@ -62,9 +63,9 @@ def reshape_array( array, samples, no_parameters ):
 
 def log_normal_pdf(sample, mean, logvar):
     log2pi = tf.math.log(2. * np.pi)
-    return tf.reduce_sum(
-      -.5 * ((sample - mean) ** 2. * tf.exp(-logvar) + logvar + log2pi)
-      )
+    return tf.reduce_mean( tf.reduce_sum(
+      -.5 * ((sample - mean) ** 2. * tf.exp(-logvar) + logvar + log2pi), axis = [ 1, 2, 3 ]
+      ) )
 
 def sample( probs ):
     return np.random.choice( 10, 1, p=probs )[0]
