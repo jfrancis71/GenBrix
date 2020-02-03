@@ -16,7 +16,7 @@ class Binary(Distribution):
     def loss( self, array, samples ):
         tp = tf.broadcast_to( array, samples.shape )
         loss = tf.nn.sigmoid_cross_entropy_with_logits( logits=tp, labels = samples )
-        return tf.math.reduce_mean( loss )
+        return tf.math.reduce_sum( loss )
     def sample( self, array ):
         return np.random.binomial( 1, tf.math.sigmoid( array ) )
 
@@ -26,7 +26,7 @@ class RealGauss(Distribution):
     def loss( self, array, samples ):
         reshape = reshape_array( array, samples, 2 )
         loss = -log_normal_pdf( samples, reshape[:,:,:,:,0], reshape[:,:,:,:,1] )
-        return tf.math.reduce_mean( loss )
+        return tf.math.reduce_sum( loss )
     def sample( self, array ):
         array_shape = tf.shape( array )
         no_image_channels = tf.math.floordiv( array_shape[2], 2 )
@@ -43,7 +43,7 @@ class Discrete(Distribution):
         scale_input = tf.multiply( samples, scale_const )
         rounds = tf.cast( tf.clip_by_value( tf.round( scale_input ), 0, 9 ), tf.int64 )
         cross = tf.nn.sparse_softmax_cross_entropy_with_logits( rounds, broad_discrete )
-        mean_cross = tf.math.reduce_mean( cross )
+        mean_cross = tf.math.reduce_sum( cross )
         return mean_cross
     def sample( self, array ):
         array_shape = tf.shape( array )
