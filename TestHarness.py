@@ -1,5 +1,5 @@
 
-from GenBrix1 import NBModel as nb
+from GenBrix import NBModel as nb
 #from GenBrix1 import GBVaE as GBVaE
 
 import tensorflow as tf
