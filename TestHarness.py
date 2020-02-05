@@ -1,6 +1,6 @@
 
 from GenBrix import NBModel as nb
-#from GenBrix1 import GBVaE as GBVaE
+from GenBrix import VariationalAutoencoder as vae
 
 import tensorflow as tf
 import numpy as np
@@ -31,24 +31,52 @@ def test_nb_bin( images, dims, no_epoch = 10, learning_rate=.01):
     nbmodel = nb.NBModel( nb.Binary(), dims )
     nbmodel.train( images, no_epoch, learning_rate )
     print( "GB Binary NBModel Log density ", nbmodel.log_density( images[0]) )
-    plt.imshow( nbmodel.sample()[:,:,0], cmap='gray', vmin=0, vmax=1 )
+    plt.imshow( nbmodel.sample()[0,:,:,0], cmap='gray', vmin=0, vmax=1 )
     plt.show()
 
 def test_nb_real_gauss( images, dims, no_epoch = 10, learning_rate=.01):
     nbmodel = nb.NBModel( nb.RealGauss(), dims )
     nbmodel.train( images, no_epoch, learning_rate )
     print( "GB RealGauss NBModel Log density ", nbmodel.log_density( images[0]) )
-    plt.imshow( nbmodel.sample()[:,:,0], vmin=0, vmax=1 )
+    plt.imshow( nbmodel.sample()[0,:,:,0], vmin=0, vmax=1 )
     plt.show()
 
 def test_nb_discrete( images, dims, no_epoch = 10, learning_rate=.01):
     nbmodel = nb.NBModel( nb.Discrete(), dims )
     nbmodel.train( images, no_epoch, learning_rate )
     print( "GB Discrete NBModel Log density ", nbmodel.log_density( images[0]) )
-    plt.imshow( nbmodel.sample()[:,:,0], vmin=0, vmax=1 )
+    plt.imshow( nbmodel.sample()[0,:,:,0], vmin=0, vmax=1 )
     plt.show()
 
-def test( no_epoch=10, learning_rate=.01 ):
+def test_nb( no_epoch=10, learning_rate=.0001 ):
    test_nb_bin( train_bin_images, [ 28, 28, 1 ], no_epoch, learning_rate )
    test_nb_real_gauss( deq_train_col_images, [ 32, 32, 3 ], no_epoch, learning_rate )
    test_nb_discrete( deq_train_col_images, [ 32, 32, 3 ], no_epoch, learning_rate )
+
+test_z = np.random.normal( np.zeros( [ 1, 1, 1, 50 ] ), np.ones( [ 1, 1, 1, 50 ] ) )
+
+def test_vae_bin( images, dims, no_epoch = 10, learning_rate=.01):
+    vaemodel = vae.VariationalAutoEncoder( nb.Binary(), dims )
+    vaemodel.train( images, no_epoch, learning_rate )
+    print( "GB Binary NBModel Log density ", vaemodel.log_density( images[0]) )
+    plt.imshow( vaemodel.sample( test_z)[0,:,:,0], cmap='gray', vmin=0, vmax=1 )
+    plt.show()
+
+def test_vae_real_gauss( images, dims, no_epoch = 10, learning_rate=.01):
+    vaemodel = vae.VariationalAutoEncoder( nb.RealGauss(), dims )
+    vaemodel.train( images, no_epoch, learning_rate )
+    print( "GB Binary NBModel Log density ", vaemodel.log_density( images[0]) )
+    plt.imshow( vaemodel.sample( test_z)[0,:,:], cmap='gray', vmin=0, vmax=1 )
+    plt.show()
+
+def test_vae_discrete( images, dims, no_epoch = 10, learning_rate=.01):
+    vaemodel = vae.VariationalAutoEncoder( nb.Discrete(), dims )
+    vaemodel.train( images, no_epoch, learning_rate )
+    print( "GB Binary NBModel Log density ", vaemodel.log_density( images[0]) )
+    plt.imshow( vaemodel.sample( test_z)[0,:,:], cmap='gray', vmin=0, vmax=1 )
+    plt.show()
+
+def test_vae( no_epoch=10, learning_rate=.0001 ):
+   test_vae_bin( train_bin_images, [ 28, 28, 1 ], no_epoch, learning_rate )
+   test_vae_real_gauss( deq_train_col_images, [ 32, 32, 3 ], no_epoch, learning_rate )
+   test_vae_discrete( deq_train_col_images, [ 32, 32, 3 ], no_epoch, learning_rate )
