@@ -72,7 +72,7 @@ class PixelCNN:
     def sample( self ):
         shape = tf.shape( self.glob_array )
         image = np.zeros( [ 1, shape[0], shape[1], self.dims[2] ] )
-        for l in range(4):
+        for l in range(4*self.dims[2]):
             broad_array = tf.broadcast_to( self.glob_array, [ image.shape[0], image.shape[1], image.shape[2] , 1 ] )
             info = tf.concat( [ image, broad_array ],axis=3 )
             image += self.distribution.sample(self.pixelcnns[l](info))*self.prediction_masks[l]
