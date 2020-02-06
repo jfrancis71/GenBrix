@@ -32,117 +32,51 @@ train_col_images = train_col_images.reshape(train_col_images.shape[0], 32, 32, 3
 
 deq_train_col_images=train_col_images + np.random.normal( 0, .05, [ 50000, 32, 32, 3 ]).astype(np.float32)
 
-def test_nb_bin( images, dims, no_epoch = 10, learning_rate=.01):
-    nbmodel = nb.NBModel( nb.Binary(), dims )
-    nbmodel.train( images, no_epoch, learning_rate )
-    print( "GB Binary NBModel Log density ", nbmodel.log_density( images[0]) )
-    plt.imshow( nbmodel.sample()[0,:,:,0], cmap='gray', vmin=0, vmax=1 )
-    plt.show()
+def test_model( model, model_name, images, test_z, type, no_epoch = 10, learning_rate=.01):
+    model.train( images, no_epoch, learning_rate )
+    print( model_name, ", Log density ", model.log_density( images[0]) )
+    if ( test_z is None ):
+        sample = model.sample()
+    else:
+        sample = model.sample( test_z )
 
-def test_nb_real_gauss( images, dims, no_epoch = 10, learning_rate=.01):
-    nbmodel = nb.NBModel( nb.RealGauss(), dims )
-    nbmodel.train( images, no_epoch, learning_rate )
-    print( "GB RealGauss NBModel Log density ", nbmodel.log_density( images[0]) )
-    plt.imshow( nbmodel.sample()[0,:,:,0], vmin=0, vmax=1 )
-    plt.show()
+    if ( type == 'bin' ):
+        sample = sample[0,:,:,0]
+        cmap = 'gray'
+    else:
+        sample = sample[0,:,:,:]
+        cmap = None
 
-def test_nb_discrete( images, dims, no_epoch = 10, learning_rate=.01):
-    nbmodel = nb.NBModel( nb.Discrete(), dims )
-    nbmodel.train( images, no_epoch, learning_rate )
-    print( "GB Discrete NBModel Log density ", nbmodel.log_density( images[0]) )
-    plt.imshow( nbmodel.sample()[0,:,:,0], vmin=0, vmax=1 )
+    plt.imshow( sample, cmap=cmap, vmin=0, vmax=1 )
     plt.show()
-
-def test_nb( image_range=512, no_epoch=10, learning_rate=.0001 ):
-   test_nb_bin( train_bin_images[:image_range], [ 28, 28, 1 ], no_epoch, learning_rate )
-   test_nb_real_gauss( deq_train_col_images[:image_range], [ 32, 32, 3 ], no_epoch, learning_rate )
-   test_nb_discrete( deq_train_col_images[:image_range], [ 32, 32, 3 ], no_epoch, learning_rate )
 
 test_z = np.random.normal( np.zeros( [ 1, 1, 1, 50 ] ), np.ones( [ 1, 1, 1, 50 ] ) )
 
-def test_vae_bin( images, dims, no_epoch = 10, learning_rate=.01):
-    vaemodel = vae.VariationalAutoEncoder( nb.Binary(), dims )
-    vaemodel.train( images, no_epoch, learning_rate )
-    print( "GB Binary VAE Log density ", vaemodel.log_density( images[0]) )
-    plt.imshow( vaemodel.sample( test_z)[0,:,:,0], cmap='gray', vmin=0, vmax=1 )
-    plt.show()
-
-def test_vae_real_gauss( images, dims, no_epoch = 10, learning_rate=.01):
-    vaemodel = vae.VariationalAutoEncoder( nb.RealGauss(), dims )
-    vaemodel.train( images, no_epoch, learning_rate )
-    print( "GB RealGauss VAE Log density ", vaemodel.log_density( images[0]) )
-    plt.imshow( vaemodel.sample( test_z)[0,:,:], cmap='gray', vmin=0, vmax=1 )
-    plt.show()
-
-def test_vae_discrete( images, dims, no_epoch = 10, learning_rate=.01):
-    vaemodel = vae.VariationalAutoEncoder( nb.Discrete(), dims )
-    vaemodel.train( images, no_epoch, learning_rate )
-    print( "GB Discrete VAE Log density ", vaemodel.log_density( images[0]) )
-    plt.imshow( vaemodel.sample( test_z)[0,:,:], cmap='gray', vmin=0, vmax=1 )
-    plt.show()
+def test_nb( image_range=512, no_epoch=10, learning_rate=.0001 ):
+    test_model( nb.NBModel( nb.Binary(), [ 28, 28, 1 ] ), "NB Bin", train_bin_images[:image_range], None, 'bin', no_epoch, learning_rate )
+    test_model( nb.NBModel( nb.RealGauss(), [ 32, 32, 3 ] ), "NB RealGauss", deq_train_col_images[:image_range], None, 'col', no_epoch, learning_rate )
+    test_model( nb.NBModel( nb.Discrete(), [ 32, 32, 3 ] ), "NB Discrete", deq_train_col_images[:image_range], None, 'col', no_epoch, learning_rate )
 
 def test_vae( image_range=512, no_epoch=10, learning_rate=.0001 ):
-    test_vae_bin( train_bin_images[:image_range], [ 28, 28, 1 ], no_epoch, learning_rate )
-    test_vae_real_gauss( deq_train_col_images[:image_range], [ 32, 32, 3 ], no_epoch, learning_rate )
-    test_vae_discrete( deq_train_col_images[:image_range], [ 32, 32, 3 ], no_epoch, learning_rate )
+    test_model( vae.VariationalAutoEncoder( nb.Binary(), [ 28, 28, 1 ] ), "VAE Bin", train_bin_images[:image_range], test_z, 'bin', no_epoch, learning_rate )
+    test_model( vae.VariationalAutoEncoder( nb.RealGauss(), [ 32, 32, 3 ] ), "VAE RealGauss", deq_train_col_images[:image_range], test_z, 'col', no_epoch, learning_rate )
+    test_model( vae.VariationalAutoEncoder( nb.Discrete(), [ 32, 32, 3 ] ), "VAE Dscrete", deq_train_col_images[:image_range], test_z, 'col', no_epoch, learning_rate )
 
-
-def test_cnn_bin( images, dims, no_epoch = 10, learning_rate=.01):
-    cnnmodel = cnn.PixelCNN( nb.Binary(), dims )
-    cnnmodel.train( images, no_epoch, learning_rate )
-    print( "GB Binary PixelCNN Log density ", cnnmodel.log_density( images[0]) )
-    plt.imshow( cnnmodel.sample()[0,:,:,0], cmap='gray', vmin=0, vmax=1 )
-    plt.show()
-
-def test_cnn_real_gauss( images, dims, no_epoch = 10, learning_rate=.01):
-    cnnmodel = cnn.PixelCNN( nb.RealGauss(), dims )
-    cnnmodel.train( images, no_epoch, learning_rate )
-    print( "GB RealGauss PixelCNN Log density ", cnnmodel.log_density( images[0]) )
-    plt.imshow( cnnmodel.sample()[0,:,:], cmap='gray', vmin=0, vmax=1 )
-    plt.show()
-
-def test_cnn_discrete( images, dims, no_epoch = 10, learning_rate=.01):
-    cnnmodel = cnn.PixelCNN( nb.Discrete(), dims )
-    cnnmodel.train( images, no_epoch, learning_rate )
-    print( "GB Discrete PixelCNN Log density ", cnnmodel.log_density( images[0]) )
-    plt.imshow( cnnmodel.sample()[0,:,:], cmap='gray', vmin=0, vmax=1 )
-    plt.show()
 
 def test_cnn( image_range=512, no_epoch=10, learning_rate=.0001 ):
-    test_cnn_bin( train_bin_images[:image_range], [ 28, 28, 1 ], no_epoch, learning_rate )
-    test_cnn_real_gauss( deq_train_col_images[:image_range], [ 32, 32, 3 ], no_epoch, learning_rate )
-    test_cnn_discrete( deq_train_col_images[:image_range], [ 32, 32, 3 ], no_epoch, learning_rate )
-
-def test_pixelvae_bin( images, dims, no_epoch = 10, learning_rate=.01):
-    vaemodel = pvae.PixelVAE( nb.Binary(), dims )
-    vaemodel.train( images, no_epoch, learning_rate )
-    print( "GB Binary VAE Log density ", vaemodel.log_density( images[0]) )
-    plt.imshow( vaemodel.sample( test_z)[0,:,:,0], cmap='gray', vmin=0, vmax=1 )
-    plt.show()
-
-def test_pixelvae_real_gauss( images, dims, no_epoch = 10, learning_rate=.01):
-    vaemodel = pvae.PixelVAE( nb.RealGauss(), dims )
-    vaemodel.train( images, no_epoch, learning_rate )
-    print( "GB RealGauss VAE Log density ", vaemodel.log_density( images[0]) )
-    plt.imshow( vaemodel.sample( test_z)[0,:,:], cmap='gray', vmin=0, vmax=1 )
-    plt.show()
-
-def test_pixelvae_discrete( images, dims, no_epoch = 10, learning_rate=.01):
-    vaemodel = pvae.PixelVAE( nb.Discrete(), dims )
-    vaemodel.train( images, no_epoch, learning_rate )
-    print( "GB Discrete VAE Log density ", vaemodel.log_density( images[0]) )
-    plt.imshow( vaemodel.sample( test_z)[0,:,:], cmap='gray', vmin=0, vmax=1 )
-    plt.show()
+    test_model( cnn.PixelCNN( nb.Binary(), [ 28, 28, 1] ), "CNN Bin", train_bin_images[:image_range], None, 'bin', no_epoch, learning_rate )
+    test_model( cnn.PixelCNN( nb.RealGauss(), [ 32, 32, 3 ] ), "CNN RealGauss", deq_train_col_images[:image_range], None, 'col', no_epoch, learning_rate )
+    test_model( cnn.PixelCNN( nb.Discrete(), [ 32, 32, 3 ] ), "CNN Discrete", deq_train_col_images[:image_range], None, 'col', no_epoch, learning_rate )
 
 def test_pixelvae( image_range=512, no_epoch=10, learning_rate=.0001 ):
-    test_pixelvae_bin( train_bin_images[:image_range], [ 28, 28, 1 ], no_epoch, learning_rate )
-    test_pixelvae_real_gauss( deq_train_col_images[:image_range], [ 32, 32, 3 ], no_epoch, learning_rate )
-    test_pixelvae_discrete( deq_train_col_images[:image_range], [ 32, 32, 3 ], no_epoch, learning_rate )
+    test_model( pvae.PixelVAE( nb.Binary(), [ 28, 28, 1 ] ), "PixelVAE Bin", train_bin_images[:image_range], test_z, 'bin', no_epoch, learning_rate )
+    test_model( pvae.PixelVAE( nb.RealGauss(), [ 32, 32, 3 ] ), "PixelVAE RealGauss", deq_train_col_images[:image_range], test_z, 'col', no_epoch, learning_rate )
+    test_model( pvae.PixelVAE( nb.Discrete(), [ 32, 32, 3 ] ), "PixelVAE Discrete", deq_train_col_images[:image_range], test_z, 'col', no_epoch, learning_rate )
 
 
 
 def test( image_range=512, no_epoch=2, learning_rate=.0001 ):
-   test_nb( image_range, no_epoch, learning_rate )
-   test_vae( image_range, no_epoch, learning_rate )
-   test_cnn( image_range, no_epoch, learning_rate )
-   test_pixelvae( image_range, no_epoch, learning_rate )
+    test_nb( image_range, no_epoch, learning_rate )
+    test_vae( image_range, no_epoch, learning_rate )
+    test_cnn( image_range, no_epoch, learning_rate )
+    test_pixelvae( image_range, no_epoch, learning_rate )
