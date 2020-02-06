@@ -85,7 +85,7 @@ class ConditionalPixelCNN(nb.Distribution):
         self.prediction_masks = generate_prediction_mask( dims )
         self.information_masks = generate_information_mask( dims )
 
-    def no_of_parameters():
+    def no_of_parameters( self ):
         return 1
 
     def loss_per_prediction( self, array, samples ):
