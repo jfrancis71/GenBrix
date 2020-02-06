@@ -144,7 +144,7 @@ class NBModel:
 #       Note below, the channels may not match up as array has distribution parameter info
 #       eg array = [ 28, 28, 6 ] for a real gaussian variable (RGB) wheras samples =
 #       [ .., 28,28, 3 ]
-        assert( np.array_equal( samples_shape[1:3], array_shape[0:2] ) )
+        assert np.array_equal( samples_shape[1:3], array_shape[0:2] ), "samples_shape={0}, array_shape={1}".format( samples_shape, array_shape )
         train_dataset = tf.data.Dataset.from_tensor_slices(samples).shuffle(60000).batch(64)
         optimizer = tf.keras.optimizers.Adam(learning_rate)
         for epoch in range(no_epoch):
