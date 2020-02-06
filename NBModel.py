@@ -15,6 +15,12 @@ class Distribution:
 class Binary(Distribution):
     def no_of_parameters( self ):
         return 1
+
+    def loss_per_prediction( self, array, samples ):
+        assert( len( array.shape ) == 4 and len( samples.shape ) == 4 )
+        loss = tf.nn.sigmoid_cross_entropy_with_logits( logits=array, labels = samples )
+        return loss
+
     def loss( self, array, samples ):
         assert( len( array.shape ) == 4 and len( samples.shape ) == 4 )
         loss = tf.nn.sigmoid_cross_entropy_with_logits( logits=array, labels = samples )
@@ -28,6 +34,13 @@ class Binary(Distribution):
 class RealGauss(Distribution):
     def no_of_parameters( self ):
         return 2
+
+    def loss_per_prediction( self, array, samples ):
+        assert( len( array.shape ) == 4 and len( samples.shape ) == 4 )
+        reshape = reshape_array( array, samples, 2 )
+        loss = -log_normal_pdf_per_prediction( samples, reshape[:,:,:,:,0], reshape[:,:,:,:,1] )
+        return loss
+
     def loss( self, array, samples ):
         assert( len( array.shape ) == 4 and len( samples.shape ) == 4 )
         reshape = reshape_array( array, samples, 2 )
@@ -45,6 +58,16 @@ class RealGauss(Distribution):
 class Discrete(Distribution):
     def no_of_parameters( self ):
         return 10
+
+    def loss_per_prediction( self, array, samples ):
+        assert( len( array.shape ) == 4 and len( samples.shape ) == 4 )
+        broad_discrete = reshape_array( array, samples, 10 )
+        scale_input = tf.multiply( samples, scale_const )
+        rounds = tf.cast( tf.clip_by_value( tf.round( scale_input ), 0, 9 ), tf.int64 )
+        cross = tf.nn.sparse_softmax_cross_entropy_with_logits( rounds, broad_discrete )
+        loss = cross
+        return loss
+
     def loss( self, array, samples ):
         assert( len( array.shape ) == 4 and len( samples.shape ) == 4 )
         broad_discrete = reshape_array( array, samples, 10 )
@@ -75,6 +98,11 @@ def log_normal_pdf(samples, mean, logvar):
     return tf.reduce_mean( tf.reduce_sum(
       -.5 * ((samples - mean) ** 2. * tf.exp(-logvar) + logvar + log2pi), axis = [ 1, 2, 3 ]
       ) )
+
+def log_normal_pdf_per_prediction(samples, mean, logvar):
+    assert( len( samples.shape ) == 4 and len( mean.shape ) == 4 and len( logvar.shape ) == 4 )
+    log2pi = tf.math.log(2. * np.pi)
+    return -.5 * ((samples - mean) ** 2. * tf.exp(-logvar) + logvar + log2pi)
 
 def sample( probs ):
     return np.random.choice( 10, 1, p=probs )[0]
