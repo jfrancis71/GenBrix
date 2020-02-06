@@ -46,37 +46,15 @@ def flatten_lists( l ):
 
 class PixelCNN:
     def __init__( self, distribution, dims ):
-        self.pixelcnns = create_pixelcnn_part( dims, distribution.no_of_parameters() )
-        self.prediction_masks = generate_prediction_mask( dims )
-        self.information_masks = generate_information_mask( dims )
-        self.distribution = distribution
-        self.glob_array = tf.Variable( np.zeros( [ dims[0], dims[1], 1 ] ).astype('float32') )
-        self.dims = dims
+        self.distribution = ConditionalPixelCNN( distribution, dims )
+        self.glob_array = tf.Variable( np.zeros( [ dims[0], dims[1], dims[2] ] ).astype('float32') )
         
     def loss( self, samples ):
-        loss_dict={}
         sp = samples.shape
-        for x in range( 4*sp[3] ):
-            masked = samples * self.information_masks[x]
-            sp = samples.shape
-            broad_array = tf.broadcast_to( self.glob_array, [ sp[0], sp[1], sp[2], self.glob_array.shape[2] ] )
-            info = tf.concat( [ masked, broad_array ],axis=3 )
-            out1 = self.pixelcnns[x]( info )
-            l = self.distribution.loss_per_prediction( out1, samples )
-            loss_dict[x] = self.prediction_masks[x]*l
-        
-        lo = tf.stack( [ ot for ot in loss_dict.values() ])
-        lo1 = tf.reduce_sum( lo, axis=0 )
-        return tf.reduce_mean( tf.reduce_sum( lo1, axis = [ 1, 2, 3 ] ) )
+        return self.distribution.loss( tf.broadcast_to( self.glob_array, [ sp[0], sp[1], sp[2], self.glob_array.shape[2] ] ), samples )
     
     def sample( self ):
-        shape = tf.shape( self.glob_array )
-        image = np.zeros( [ 1, shape[0], shape[1], self.dims[2] ] )
-        for l in range(4*self.dims[2]):
-            broad_array = tf.broadcast_to( self.glob_array, [ image.shape[0], image.shape[1], image.shape[2] , 1 ] )
-            info = tf.concat( [ image, broad_array ],axis=3 )
-            image += self.distribution.sample(self.pixelcnns[l](info))*self.prediction_masks[l]
-        return image
+        return self.distribution.sample( tf.expand_dims( self.glob_array, 0 ) )
 
     def log_density( self, sample ):
         return -self.loss( tf.expand_dims( sample, 0 ) )
@@ -91,9 +69,50 @@ class PixelCNN:
             print( "Epoch", epoch, "Training loss ", self.loss( samples[:128] ) )
     
     def apply_gradients( self, optimizer, samples ):
-        trainable_variables = flatten_lists( [ self.pixelcnns[r].trainable_variables for r in range(4) ] ) + [ self.glob_array ]
+        trainable_variables = flatten_lists( [ self.distribution.pixelcnns[r].trainable_variables for r in range(4) ] ) + [ self.glob_array ]
         with tf.GradientTape() as tape:
             xloss = self.loss( samples )
         g = tape.gradient( xloss, trainable_variables )
         optimizer.apply_gradients( zip ( g, trainable_variables ) )
 
+from GenBrix import NBModel as nb
+
+class ConditionalPixelCNN(nb.Distribution):
+
+    def __init__( self, distribution, dims ):
+        self.distribution = distribution
+        self.pixelcnns = create_pixelcnn_part( dims, distribution.no_of_parameters() )
+        self.prediction_masks = generate_prediction_mask( dims )
+        self.information_masks = generate_information_mask( dims )
+
+    def no_of_parameters():
+        return 1
+
+    def loss_per_prediction( self, array, samples ):
+        loss_dict={}
+        sp = samples.shape
+        for x in range( 4*sp[3] ):
+            masked = samples * self.information_masks[x]
+            sp = samples.shape
+            info = tf.concat( [ masked, array ],axis=3 )
+            out1 = self.pixelcnns[x]( info )
+            l = self.distribution.loss_per_prediction( out1, samples )
+            loss_dict[x] = self.prediction_masks[x]*l
+        
+        lo = tf.stack( [ ot for ot in loss_dict.values() ])
+        lo1 = tf.reduce_sum( lo, axis=0 )
+        return lo1
+
+
+    def loss( self, array, samples ):
+        return tf.reduce_mean( tf.reduce_sum( self.loss_per_prediction( array, samples ), axis = [ 1, 2, 3 ] ) )
+
+    def sample( self, array ):
+        shape = tf.shape( array )
+        assert( len( array.shape ) == 4 )
+        no_image_channels = tf.math.floordiv( shape[3], 1 )
+        image = np.zeros( [ 1, shape[1], shape[2], no_image_channels ] )
+        for l in range(4*no_image_channels):
+            info = tf.concat( [ image, array ],axis=3 )
+            image += self.distribution.sample(self.pixelcnns[l](info))*self.prediction_masks[l]
+        return image
