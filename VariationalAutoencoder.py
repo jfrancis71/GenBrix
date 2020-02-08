@@ -37,8 +37,9 @@ def sample_latent( z1 ):
     random_sample = tf.random.normal( shape = logvar_sample.shape )
     return tf.exp( logvar_sample ) * random_sample + mean_sample
 
-class VariationalAutoEncoder:
+class VariationalAutoEncoder(nb.Model):
     def __init__( self, distribution, image_dims ):
+        super(VariationalAutoEncoder, self).__init__()
         self.xinference_net = inference_net()
         self.xgenerative_net = generative_net( image_dims, distribution.no_of_parameters() )
         self.distribution = distribution
@@ -53,30 +54,9 @@ class VariationalAutoEncoder:
         kl_loss = logqz_x - logpz
         loss = tf.reduce_mean( l1 + kl_loss )
         return loss
-    
-    def log_density( self, sample ):
-        return -self.loss( tf.expand_dims( sample, 0 ) )
-    
-    def log_densities( self, samples ):
-        train_dataset = tf.data.Dataset.from_tensor_slices(samples).shuffle(60000).batch(64)
-        mean = 0
-        count = 0
-        for train_x in train_dataset:
-            mean += self.distribution.loss( self.array, train_x )
-            count += 1
-        return mean/count
-        
+            
     def sample( self, test_z ):
         return self.distribution.sample( self.xgenerative_net( test_z ) )
-
-    def train( self, samples, no_epoch=10, learning_rate=.0001 ):
-        train_dataset = tf.data.Dataset.from_tensor_slices(samples).shuffle(60000).batch(128)
-        optimizer = tf.keras.optimizers.Adam(learning_rate)
-        print( "Initial", "Training loss ", self.loss( samples ) )
-        for epoch in range(no_epoch):
-            for train_x in train_dataset:
-                self.apply_gradients( optimizer, train_x)
-            print( "Epoch", epoch, "Training loss ", self.loss( samples[:128] ) )
     
     def apply_gradients( self, optimizer, samples ):
         trainable_variables = self.xinference_net.trainable_variables + self.xgenerative_net.trainable_variables

@@ -11,6 +11,33 @@ class Distribution:
 # array and samples both of form (B,Y,X,C)
     def sample( self, array1 ):
         return "unimplemented"
+    
+class Model:
+    def log_density( self, sample ):
+        return -self.loss( tf.expand_dims( sample, 0 ) )
+    def log_densities( self, samples ):
+        train_dataset = tf.data.Dataset.from_tensor_slices(samples).shuffle(60000).batch(64)
+        mean = 0
+        count = 0
+        for train_x in train_dataset:
+            mean += self.distribution.loss( self.array, train_x )
+            count += 1
+        return mean/count
+    def train( self, samples, no_epoch=10, learning_rate=.0001 ):
+        train_dataset = tf.data.Dataset.from_tensor_slices(samples).shuffle(60000).batch(128)
+        optimizer = tf.keras.optimizers.Adam(learning_rate)
+        print( "Initial", "Training loss ", self.loss( samples[:128] ) )
+        for epoch in range(no_epoch):
+            for train_x in train_dataset:
+                self.apply_gradients( optimizer, train_x)
+            print( "Epoch", epoch, "Training loss ", self.loss( samples[:128] ) )
+    def sample():
+        return "unimplemented"
+    def loss( samples ):
+        return "unimplemented"
+    def apply_gradients():
+        return "unimplemented"
+        
 
 class Binary(Distribution):
     def no_of_parameters( self ):
@@ -114,45 +141,22 @@ def broadcast_array( array, samples ):
     assert( len ( samples_shape ) == 4 )
     return tf.broadcast_to( array, [ samples_shape[0], array_shape[0], array_shape[1], array_shape[2] ] )
 
-class NBModel:
+class NBModel(Model):
     def __init__(self, distribution, dims):
+        super(NBModel, self).__init__()
         self.distribution = distribution
         dims[2] = dims[2] * distribution.no_of_parameters()
         self.array = tf.Variable(
             np.zeros( dims ).astype('float32') )
-
-    def log_density( self, sample ):
-        return self.distribution.loss( tf.expand_dims( self.array, 0 ), tf.expand_dims( sample, 0 ) )
-
-    def log_densities( self, samples ):
-        train_dataset = tf.data.Dataset.from_tensor_slices(samples).shuffle(60000).batch(64)
-        mean = 0
-        count = 0
-        for train_x in train_dataset:
-            xbroadcast_array = broadcast_array( self.array, train_x )
-            mean += self.distribution.loss( xbroadcast_array, train_x )
-            count += 1
-        return mean/count
-
+    
+    def loss( self, samples ):
+        xbroadcast_array = broadcast_array( self.array, samples )
+        return self.distribution.loss( xbroadcast_array, samples )
 
     def sample( self ):
         return self.distribution.sample( tf.expand_dims( self.array, 0 ) )
 
-    def train( self, samples, no_epoch=10, learning_rate=.01 ):
-        samples_shape = tf.shape( samples )
-        array_shape = tf.shape( self.array )
-#       Note below, the channels may not match up as array has distribution parameter info
-#       eg array = [ 28, 28, 6 ] for a real gaussian variable (RGB) wheras samples =
-#       [ .., 28,28, 3 ]
-        assert np.array_equal( samples_shape[1:3], array_shape[0:2] ), "samples_shape={0}, array_shape={1}".format( samples_shape, array_shape )
-        train_dataset = tf.data.Dataset.from_tensor_slices(samples).shuffle(60000).batch(64)
-        optimizer = tf.keras.optimizers.Adam(learning_rate)
-        for epoch in range(no_epoch):
-            for train_x in train_dataset:
-                self.apply_gradients( train_x, optimizer)
-            print( "Epoch", epoch, "Training loss ", tf.reduce_mean( self.log_densities( samples ) ) )
-
-    def apply_gradients( self, samples, optimizer ):
+    def apply_gradients( self, optimizer, samples ):
         with tf.GradientTape() as tape:
             xbroadcast_array = broadcast_array( self.array, samples )
             loss = self.distribution.loss( xbroadcast_array, samples )
