@@ -28,8 +28,7 @@ class Model:
     def train( self, samples, no_epoch=10, learning_rate=.0001, logging=False ):
         optimizer = tf.keras.optimizers.Adam(learning_rate)
         print( "Initial", "Training loss ", self.loss( samples[:128] ) )
-        log_writer = None
-        if logging is not None:
+        if logging is True:
             log_writer = tf.summary.create_file_writer("./log")
             with log_writer.as_default():
                 self.train_loop( optimizer, samples, no_epoch, log_writer )
