@@ -57,13 +57,10 @@ class PixelCNN(nb.Model):
     
     def sample( self ):
         return self.distribution.sample( tf.expand_dims( self.glob_array, 0 ) )
+
+    def get_trainable_variables( self ):
+        return self.distribution.get_trainable_variables() + [ self.glob_array ]
     
-    def apply_gradients( self, optimizer, samples ):
-        trainable_variables = flatten_lists( [ self.distribution.pixelcnns[r].trainable_variables for r in range(4) ] ) + [ self.glob_array ]
-        with tf.GradientTape() as tape:
-            xloss = self.loss( samples )
-        g = tape.gradient( xloss, trainable_variables )
-        optimizer.apply_gradients( zip ( g, trainable_variables ) )
 
 from GenBrix import NBModel as nb
 
@@ -106,3 +103,7 @@ class ConditionalPixelCNN(nb.Distribution):
             info = tf.concat( [ image, array ],axis=3 )
             image += self.distribution.sample(self.pixelcnns[l](info))*self.prediction_masks[l]
         return image
+    
+    def get_trainable_variables( self ):
+        return flatten_lists( [ self.pixelcnns[r].trainable_variables for r in range(4) ] )
+    

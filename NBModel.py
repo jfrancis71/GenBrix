@@ -13,6 +13,10 @@ class Distribution:
         return "unimplemented"
     
 class Model:
+    
+    def get_trainable_variables():
+        return "unimplemented"
+    
     def log_density( self, sample ):
         return -self.loss( tf.expand_dims( sample, 0 ) )
     
@@ -59,8 +63,13 @@ class Model:
         return "unimplemented"
     def loss( samples ):
         return "unimplemented"
-    def apply_gradients():
-        return "unimplemented"
+
+    def apply_gradients( self, optimizer, samples ):
+        trainable_variables = self.get_trainable_variables()
+        with tf.GradientTape() as tape:
+            xloss = self.loss( samples )
+        g = tape.gradient( xloss, trainable_variables )
+        optimizer.apply_gradients( zip ( g, trainable_variables ) )
         
 
 class Binary(Distribution):
@@ -180,11 +189,7 @@ class NBModel(Model):
     def sample( self ):
         return self.distribution.sample( tf.expand_dims( self.array, 0 ) )
 
-    def apply_gradients( self, optimizer, samples ):
-        with tf.GradientTape() as tape:
-            xbroadcast_array = broadcast_array( self.array, samples )
-            loss = self.distribution.loss( xbroadcast_array, samples )
-        gradients = tape.gradient( loss, self.array )
-        optimizer.apply_gradients( zip( [ gradients ], [ self.array ] ) )
-
+    def get_trainable_variables( self ):
+        return [ self.array ]
+    
 scale_const = tf.constant( 10.0 )

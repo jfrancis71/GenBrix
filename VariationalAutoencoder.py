@@ -60,11 +60,5 @@ class VariationalAutoEncoder(nb.Model):
             test_z = np.random.normal( np.zeros( [ 1, 1, 1, 50 ] ), np.ones( [ 1, 1, 1, 50 ] ) )
         return self.distribution.sample( self.xgenerative_net( test_z ) )
     
-    def apply_gradients( self, optimizer, samples ):
-        trainable_variables = self.xinference_net.trainable_variables + self.xgenerative_net.trainable_variables
-        with tf.GradientTape() as tape:
-            xloss = self.loss( samples )
-        g = tape.gradient( xloss, trainable_variables )
-        optimizer.apply_gradients( zip ( g, trainable_variables ) )
-
-
+    def get_trainable_variables( self ):
+        return self.xinference_net.trainable_variables + self.xgenerative_net.trainable_variables
