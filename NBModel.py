@@ -34,16 +34,24 @@ class Model:
                 self.train_loop( optimizer, samples, no_epoch, log_writer )
         else:
             self.train_loop( optimizer, samples, no_epoch, None)
-            
+
+#   Note, here we're just using the 1st batches of training and validation loss
+#   as performance metrics
     def train_loop( self, optimizer, samples, no_epoch, log_writer ):
-        train_dataset = tf.data.Dataset.from_tensor_slices(samples).shuffle(60000).batch(128)
+        randomized_samples = tf.random.shuffle( samples )
+        train_size = np.round(randomized_samples.shape[0]*0.9).astype(int)
+        train_set = randomized_samples[:train_size]
+        validation_set = randomized_samples[train_size:min(train_size+128,randomized_samples.shape[0]-1)]
         for epoch in range(no_epoch):
+            train_dataset = tf.data.Dataset.from_tensor_slices(train_set).shuffle(60000).batch(128)
             for train_x in train_dataset:
                 self.apply_gradients( optimizer, train_x)
-            loss_value = self.loss( samples[:128])
-            print( "Epoch", epoch, "Training loss ", loss_value )
+            train_loss_value = self.loss( train_set[:128])
+            validation_loss_value = self.loss( validation_set )
+            print( "Epoch", epoch, "Training loss ", train_loss_value, "Validation loss ",validation_loss_value )
             if log_writer is not None:
-                tf.summary.scalar( 'loss', loss_value, step=epoch )
+                tf.summary.scalar( 'training_loss', train_loss_value, step=epoch )
+                tf.summary.scalar( 'validation_loss', validation_loss_value, step=epoch )
                 samp = self.sample()
                 tf.summary.image( 'sample', samp.astype(np.float32) , step=epoch )
                 tf.summary.image( 'data sample', samples[:1], step=epoch)
