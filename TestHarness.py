@@ -32,8 +32,8 @@ train_col_images = train_col_images.reshape(train_col_images.shape[0], 32, 32, 3
 
 deq_train_col_images=train_col_images + np.random.normal( 0, .05, [ 50000, 32, 32, 3 ]).astype(np.float32)
 
-def test_model( model, model_name, images, test_z, type, no_epoch = 10, learning_rate=.01):
-    model.train( images, no_epoch, learning_rate )
+def test_model( model, model_name, images, test_z, type, no_epoch = 10, learning_rate=.01, logging=False):
+    model.train( images, no_epoch, learning_rate, logging )
     print( model_name, ", Log density ", model.log_density( images[0]) )
     if ( test_z is None ):
         sample = model.sample()

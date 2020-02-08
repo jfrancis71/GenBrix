@@ -55,7 +55,9 @@ class VariationalAutoEncoder(nb.Model):
         loss = tf.reduce_mean( l1 + kl_loss )
         return loss
             
-    def sample( self, test_z ):
+    def sample( self, test_z=None ):
+        if test_z is None:
+            test_z = np.random.normal( np.zeros( [ 1, 1, 1, 50 ] ), np.ones( [ 1, 1, 1, 50 ] ) )
         return self.distribution.sample( self.xgenerative_net( test_z ) )
     
     def apply_gradients( self, optimizer, samples ):

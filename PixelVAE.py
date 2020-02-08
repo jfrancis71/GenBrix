@@ -11,7 +11,7 @@ class PixelVAE(nb.Model):
     def loss( self, samples ):
         return self.vae.loss( samples )
     
-    def sample( self, test_z ):
+    def sample( self, test_z=None ):
         return self.vae.sample( test_z )
 
     def apply_gradients( self, optimizer, samples ):

@@ -15,6 +15,7 @@ class Distribution:
 class Model:
     def log_density( self, sample ):
         return -self.loss( tf.expand_dims( sample, 0 ) )
+    
     def log_densities( self, samples ):
         train_dataset = tf.data.Dataset.from_tensor_slices(samples).shuffle(60000).batch(64)
         mean = 0
@@ -23,14 +24,30 @@ class Model:
             mean += self.distribution.loss( self.array, train_x )
             count += 1
         return mean/count
-    def train( self, samples, no_epoch=10, learning_rate=.0001 ):
-        train_dataset = tf.data.Dataset.from_tensor_slices(samples).shuffle(60000).batch(128)
+    
+    def train( self, samples, no_epoch=10, learning_rate=.0001, logging=False ):
         optimizer = tf.keras.optimizers.Adam(learning_rate)
         print( "Initial", "Training loss ", self.loss( samples[:128] ) )
+        log_writer = None
+        if logging is not None:
+            log_writer = tf.summary.create_file_writer("./log")
+            with log_writer.as_default():
+                self.train_loop( optimizer, samples, no_epoch, log_writer )
+        else:
+            self.train_loop( optimizer, samples, no_epoch, None)
+            
+    def train_loop( self, optimizer, samples, no_epoch, log_writer ):
+        train_dataset = tf.data.Dataset.from_tensor_slices(samples).shuffle(60000).batch(128)
         for epoch in range(no_epoch):
             for train_x in train_dataset:
                 self.apply_gradients( optimizer, train_x)
-            print( "Epoch", epoch, "Training loss ", self.loss( samples[:128] ) )
+            loss_value = self.loss( samples[:128])
+            print( "Epoch", epoch, "Training loss ", loss_value )
+            if log_writer is not None:
+                tf.summary.scalar( 'loss', loss_value, step=epoch )
+                samp = self.sample()
+                tf.summary.image( 'sample', samp.astype(np.float32) , step=epoch )
+                tf.summary.image( 'data sample', samples[:1], step=epoch)
     def sample():
         return "unimplemented"
     def loss( samples ):
