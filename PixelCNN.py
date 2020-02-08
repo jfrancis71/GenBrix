@@ -105,5 +105,4 @@ class ConditionalPixelCNN(nb.Distribution):
         return image
     
     def get_trainable_variables( self ):
-        return flatten_lists( [ self.pixelcnns[r].trainable_variables for r in range(4) ] )
-    
+        return flatten_lists( [ cond.trainable_variables for cond in self.pixelcnns ] )
