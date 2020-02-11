@@ -7,7 +7,7 @@ class PixelVAE(nb.Model):
     def __init__( self, distribution, image_dims ):
         super(PixelVAE, self).__init__()
         self.cnn = cnn.ConditionalPixelCNN( distribution, image_dims )
-        self.vae = vae.VariationalAutoEncoder( self.cnn, image_dims )
+        self.vae = vae.VariationalAutoencoder( self.cnn, image_dims )
 
     def loss( self, samples ):
         return self.vae.loss( samples )

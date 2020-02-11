@@ -37,9 +37,9 @@ def sample_latent( z1 ):
     random_sample = tf.random.normal( shape = logvar_sample.shape )
     return tf.exp( logvar_sample ) * random_sample + mean_sample
 
-class VariationalAutoEncoder(nb.Model):
+class VariationalAutoencoder(nb.Model):
     def __init__( self, distribution, image_dims ):
-        super(VariationalAutoEncoder, self).__init__()
+        super(VariationalAutoencoder, self).__init__()
         self.xinference_net = inference_net()
         self.xgenerative_net = generative_net( image_dims, distribution.no_of_parameters() )
         self.distribution = distribution

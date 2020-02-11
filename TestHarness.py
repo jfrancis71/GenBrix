@@ -58,9 +58,9 @@ def test_nb( image_range=512, no_epoch=10, learning_rate=.0001 ):
     test_model( nb.NBModel( nb.Discrete(), [ 32, 32, 3 ] ), "NB Discrete", deq_train_col_images[:image_range], None, 'col', no_epoch, learning_rate )
 
 def test_vae( image_range=512, no_epoch=10, learning_rate=.0001 ):
-    test_model( vae.VariationalAutoEncoder( nb.Binary(), [ 28, 28, 1 ] ), "VAE Bin", train_bin_images[:image_range], test_z, 'bin', no_epoch, learning_rate )
-    test_model( vae.VariationalAutoEncoder( nb.RealGauss(), [ 32, 32, 3 ] ), "VAE RealGauss", deq_train_col_images[:image_range], test_z, 'col', no_epoch, learning_rate )
-    test_model( vae.VariationalAutoEncoder( nb.Discrete(), [ 32, 32, 3 ] ), "VAE Dscrete", deq_train_col_images[:image_range], test_z, 'col', no_epoch, learning_rate )
+    test_model( vae.VariationalAutoencoder( nb.Binary(), [ 28, 28, 1 ] ), "VAE Bin", train_bin_images[:image_range], test_z, 'bin', no_epoch, learning_rate )
+    test_model( vae.VariationalAutoencoder( nb.RealGauss(), [ 32, 32, 3 ] ), "VAE RealGauss", deq_train_col_images[:image_range], test_z, 'col', no_epoch, learning_rate )
+    test_model( vae.VariationalAutoencoder( nb.Discrete(), [ 32, 32, 3 ] ), "VAE Dscrete", deq_train_col_images[:image_range], test_z, 'col', no_epoch, learning_rate )
 
 
 def test_cnn( image_range=512, no_epoch=10, learning_rate=.0001 ):
