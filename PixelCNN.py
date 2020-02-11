@@ -29,13 +29,11 @@ def generate_information_mask( dims ):
 def create_pixelcnn_part( dims, distribution_parameters ):
     return [ tf.keras.Sequential([
     tf.keras.layers.Conv2D(
-              filters=32, kernel_size=3, padding='SAME',strides=(1, 1), activation='relu'),
+              filters=16, kernel_size=3, padding='SAME',strides=(1, 1), activation='tanh'),
     tf.keras.layers.Conv2D(
-              filters=32, kernel_size=3, padding='SAME',strides=(1, 1), activation='relu'),
+              filters=16, kernel_size=1, padding='SAME',strides=(1, 1), activation='tanh'),
     tf.keras.layers.Conv2D(
-              filters=32, kernel_size=3, padding='SAME',strides=(1, 1), activation='relu'),
-    tf.keras.layers.Conv2D(
-              filters=dims[2]*distribution_parameters, kernel_size=3, padding='SAME',strides=(1, 1), activation=None),
+              filters=dims[2]*distribution_parameters, kernel_size=1, padding='SAME',strides=(1, 1), activation=None),
 ]) for x in range(4*dims[2]) ]
 
 def flatten_lists( l ):
