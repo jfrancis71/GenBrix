@@ -73,83 +73,89 @@ class Model:
         
 
 class Binary(Distribution):
+
     def no_of_parameters( self ):
         return 1
 
-    def loss_per_prediction( self, array, samples ):
-        assert( len( array.shape ) == 4 and len( samples.shape ) == 4 )
-        loss = tf.nn.sigmoid_cross_entropy_with_logits( logits=array, labels = samples )
+    def loss_per_prediction( self, channel, samples ):
+        assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
+        logits_parameters_output = reshape_channel_to_parameters( channel, 1 )
+        loss = tf.nn.sigmoid_cross_entropy_with_logits( logits=logits_parameters_output[:,:,:,:,0], labels = samples )
         return loss
 
-    def loss( self, array, samples ):
-        assert( len( array.shape ) == 4 and len( samples.shape ) == 4 )
-        loss = tf.nn.sigmoid_cross_entropy_with_logits( logits=array, labels = samples )
+    def loss( self, channel, samples ):
+        assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
+        logits_parameters_output = reshape_channel_to_parameters( channel, 1 )
+        loss = tf.nn.sigmoid_cross_entropy_with_logits( logits=logits_parameters_output[:,:,:,:,0], labels = samples )
 #You want the sum across YxXxC so you can compare different losses, but average across batch.
         return tf.math.reduce_mean( tf.math.reduce_sum( loss, axis = [ 1, 2, 3 ] ) )
-    def sample( self, array ):
-        array_shape = tf.shape( array )
-        assert( len( array.shape ) == 4 )
-        return np.random.binomial( 1, tf.math.sigmoid( array ) )
+
+    def sample( self, channel ):
+        channel_shape = tf.shape( channel )
+        assert( len( channel.shape ) == 4 )
+        logits_parameters_output = reshape_channel_to_parameters( channel, 1 )
+        return np.random.binomial( 1, tf.math.sigmoid( logits_parameters_output[:,:,:,:,0] ) )
 
 class RealGauss(Distribution):
+
     def no_of_parameters( self ):
         return 2
 
-    def loss_per_prediction( self, array, samples ):
-        assert( len( array.shape ) == 4 and len( samples.shape ) == 4 )
-        reshape = reshape_array( array, samples, 2 )
-        loss = -log_normal_pdf_per_prediction( samples, reshape[:,:,:,:,0], reshape[:,:,:,:,1] )
+    def loss_per_prediction( self, channel, samples ):
+        assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
+        logits_parameters_output = reshape_channel_to_parameters( channel, 2 )
+        loss = -log_normal_pdf_per_prediction( samples, logits_parameters_output[:,:,:,:,0], logits_parameters_output[:,:,:,:,1] )
         return loss
 
-    def loss( self, array, samples ):
-        assert( len( array.shape ) == 4 and len( samples.shape ) == 4 )
-        reshape = reshape_array( array, samples, 2 )
-        loss = -log_normal_pdf( samples, reshape[:,:,:,:,0], reshape[:,:,:,:,1] )
+    def loss( self, channel, samples ):
+        assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
+        logits_parameters_output = reshape_channel_to_parameters( channel, 2 )
+        loss = -log_normal_pdf( samples, logits_parameters_output[:,:,:,:,0], logits_parameters_output[:,:,:,:,1] )
         return loss
-    def sample( self, array ):
-        array_shape = tf.shape( array )
-        assert( len( array.shape ) == 4 )
-        no_image_channels = tf.math.floordiv( array_shape[3], 2 )
-        reshape = tf.reshape ( array, [ array_shape[0], array_shape[1], array_shape[2], no_image_channels, 2 ] )
+
+    def sample( self, channel ):
+        channel_shape = tf.shape( channel )
+        assert( len( channel.shape ) == 4 )
+        logits_parameters_output = reshape_channel_to_parameters( channel, 2 )
         return np.random.normal(
-            reshape[:,:,:,:,0],
-            np.sqrt( np.exp( reshape[:,:,:,:,1] ) ) )
+            logits_parameters_output[:,:,:,:,0],
+            np.sqrt( np.exp( logits_parameters_output[:,:,:,:,1] ) ) )
 
 class Discrete(Distribution):
+
     def no_of_parameters( self ):
         return 10
 
-    def loss_per_prediction( self, array, samples ):
-        assert( len( array.shape ) == 4 and len( samples.shape ) == 4 )
-        broad_discrete = reshape_array( array, samples, 10 )
+    def loss_per_prediction( self, channel, samples ):
+        assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
+        logits_parameters_output = reshape_channel_to_parameters( channel, 10 )
         scale_input = tf.multiply( samples, scale_const )
         rounds = tf.cast( tf.clip_by_value( tf.round( scale_input ), 0, 9 ), tf.int64 )
-        cross = tf.nn.sparse_softmax_cross_entropy_with_logits( rounds, broad_discrete )
-        loss = cross
-        return loss
+        cross = tf.nn.sparse_softmax_cross_entropy_with_logits( rounds, logits_parameters_output )
+        return cross
 
-    def loss( self, array, samples ):
-        assert( len( array.shape ) == 4 and len( samples.shape ) == 4 )
-        broad_discrete = reshape_array( array, samples, 10 )
+    def loss( self, channel, samples ):
+        assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
+        logits_parameters_output = reshape_channel_to_parameters( channel, 10 )
         scale_input = tf.multiply( samples, scale_const )
         rounds = tf.cast( tf.clip_by_value( tf.round( scale_input ), 0, 9 ), tf.int64 )
-        cross = tf.nn.sparse_softmax_cross_entropy_with_logits( rounds, broad_discrete )
+        cross = tf.nn.sparse_softmax_cross_entropy_with_logits( rounds, logits_parameters_output )
         loss = tf.math.reduce_mean( tf.math.reduce_sum( cross, axis = [ 1,2, 3 ] ) )
         return loss
-    def sample( self, array ):
-        array_shape = tf.shape( array )
-        assert( len( array.shape ) == 4 )
-        no_image_channels = tf.math.floordiv( array_shape[3], 10 )
-        reshape = tf.reshape( array, [ array_shape[0], array_shape[1], array_shape[2], no_image_channels, 10 ] )
-        soft = tf.nn.softmax( reshape )
-        return np.apply_along_axis( sample, 4, soft.numpy() )/10
 
-#Reshapes array so that it goes from b*y*x*(array channels) -> b*y*x*(input channels)*p
+    def sample( self, channel ):
+        channel_shape = tf.shape( channel )
+        assert( len( channel.shape ) == 4 )
+        logit_parameters_output = reshape_channel_to_parameters( channel, 10 )
+        parameters_output = tf.nn.softmax( logit_parameters_output )
+        return np.apply_along_axis( sample, 4, parameters_output.numpy() )/10
+
+#Reshapes channel so that it goes from b*y*x*(array channels) -> b*y*x*(input channels)*p
 #where p is number of parameters of distribution
-def reshape_array( array, samples, no_parameters ):
-    samples_shape = tf.shape( samples )
-    array_shape = tf.shape( array )
-    return tf.reshape ( array, [ array_shape[0], array_shape[1], array_shape[2], samples_shape[3], no_parameters ] )
+def reshape_channel_to_parameters( channel, no_parameters ):
+    channel_shape = tf.shape( channel )
+    no_image_channels = tf.math.floordiv( channel_shape[3], no_parameters )
+    return tf.reshape ( channel, [ channel_shape[0], channel_shape[1], channel_shape[2], no_image_channels, no_parameters ] )
 
 #returns scalar
 def log_normal_pdf(samples, mean, logvar):
