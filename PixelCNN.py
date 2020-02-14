@@ -69,27 +69,38 @@ class ConditionalPixelCNN(nb.Distribution):
         self.pixelcnns = create_pixelcnn_part( dims, distribution.no_of_parameters() )
         self.prediction_masks = generate_prediction_mask( dims )
         self.information_masks = generate_information_mask( dims )
+        self.prediction_output_masks = np.zeros( [ 4*dims[2], dims[0], dims[1], dims[2]*distribution.no_of_parameters() ])
+        for x in range( 4 * dims[2] ):
+            prediction_parameter_masks = np.zeros( [ dims[0], dims[1], dims[2], distribution.no_of_parameters() ])
+            for p in range( distribution.no_of_parameters() ):
+                prediction_parameter_masks[:,:,:,p] = self.prediction_masks[x]
+            self.prediction_output_masks[x] = np.reshape( prediction_parameter_masks, [ dims[0], dims[1], dims[2]*self.distribution.no_of_parameters() ] )
 
     def no_of_parameters( self ):
         return 1
 
-    def loss_per_prediction( self, conditional, samples ):
-        conditional_net_loss_dict={}
-        sp = samples.shape
-        for x in range( 4*sp[3] ):
+# It predicts distribution parameters, but in an autoregressive fashion, ie in terms of predicting samples, some of the
+# info from sample is used.
+    def predict_parameters( self, conditional, samples ):
+        sp_shape = samples.shape
+        conditional_net_masked_output_dict = {}
+        for x in range( 4 * sp_shape[3] ):
             masked = samples * self.information_masks[x]
             conditional_net_input = tf.concat( [ masked, conditional ],axis=3 )
             conditional_net_output = self.pixelcnns[x]( conditional_net_input )
-            conditional_net_loss = self.distribution.loss_per_prediction( conditional_net_output, samples )
-            conditional_net_loss_dict[x] = self.prediction_masks[x] * conditional_net_loss
-        
-        conditional_net_loss_stack = tf.stack( [ conditional_net_loss for conditional_net_loss in conditional_net_loss_dict.values() ])
-        conditional_net_loss = tf.reduce_sum( conditional_net_loss_stack, axis=0 )
-        return conditional_net_loss
-
+#            prediction_parameter_masks = np.zeros( [ sp_shape[1], sp_shape[2], sp_shape[3], self.distribution.no_of_parameters() ])
+#            for p in range( self.distribution.no_of_parameters() ):
+#                prediction_parameter_masks[:,:,:,p] = self.prediction_masks[x]
+#            prediction_output_masks = np.reshape( prediction_parameter_masks, [ sp_shape[1], sp_shape[2], sp_shape[3]*self.distribution.no_of_parameters() ] )
+            conditional_net_masked_output = self.prediction_output_masks[x] * conditional_net_output
+            conditional_net_masked_output_dict[x] = conditional_net_masked_output
+        conditional_net_masked_output_stack = tf.stack( [ conditional_net_masked_output for conditional_net_masked_output in conditional_net_masked_output_dict.values() ])
+        conditional_net_output = tf.reduce_sum( conditional_net_masked_output_stack, axis=0 )
+        return conditional_net_output
 
     def loss( self, conditional, samples ):
-        return tf.reduce_mean( tf.reduce_sum( self.loss_per_prediction( conditional, samples ), axis = [ 1, 2, 3 ] ) )
+        params = self.predict_parameters( conditional, samples )
+        return self.distribution.loss( params, samples )
 
     def sample( self, conditional ):
         shape = tf.shape( conditional )
@@ -100,6 +111,6 @@ class ConditionalPixelCNN(nb.Distribution):
             info = tf.concat( [ image, conditional ],axis=3 )
             image += self.distribution.sample(self.pixelcnns[l](info))*self.prediction_masks[l]
         return image
-    
+
     def get_trainable_variables( self ):
         return flatten_lists( [ cond.trainable_variables for cond in self.pixelcnns ] )

@@ -77,12 +77,6 @@ class Binary(Distribution):
     def no_of_parameters( self ):
         return 1
 
-    def loss_per_prediction( self, channel, samples ):
-        assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
-        logits_parameters_output = reshape_channel_to_parameters( channel, 1 )
-        loss = tf.nn.sigmoid_cross_entropy_with_logits( logits=logits_parameters_output[:,:,:,:,0], labels = samples )
-        return loss
-
     def loss( self, channel, samples ):
         assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
         logits_parameters_output = reshape_channel_to_parameters( channel, 1 )
@@ -100,12 +94,6 @@ class RealGauss(Distribution):
 
     def no_of_parameters( self ):
         return 2
-
-    def loss_per_prediction( self, channel, samples ):
-        assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
-        logits_parameters_output = reshape_channel_to_parameters( channel, 2 )
-        loss = -log_normal_pdf_per_prediction( samples, logits_parameters_output[:,:,:,:,0], logits_parameters_output[:,:,:,:,1] )
-        return loss
 
     def loss( self, channel, samples ):
         assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
@@ -125,14 +113,6 @@ class Discrete(Distribution):
 
     def no_of_parameters( self ):
         return 10
-
-    def loss_per_prediction( self, channel, samples ):
-        assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
-        logits_parameters_output = reshape_channel_to_parameters( channel, 10 )
-        scale_input = tf.multiply( samples, scale_const )
-        rounds = tf.cast( tf.clip_by_value( tf.round( scale_input ), 0, 9 ), tf.int64 )
-        cross = tf.nn.sparse_softmax_cross_entropy_with_logits( rounds, logits_parameters_output )
-        return cross
 
     def loss( self, channel, samples ):
         assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
