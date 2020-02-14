@@ -89,14 +89,14 @@ class VariationalAutoencoder(nb.Model):
         self.distribution = distribution
 
     def loss( self, samples ):
-        zm = self.xinference_net( samples )
-        z1 = sample_latent( zm )
-        de = self.xgenerative_net( z1  )
-        l1 = self.distribution.loss( de, samples )
-        logpz = nb.log_normal_pdf(z1, zm[:,:,:,:,0]*0.0, zm[:,:,:,:,0]*0. )
-        logqz_x = nb.log_normal_pdf(z1, zm[:,:,:,:,0], zm[:,:,:,:,1] )
+        inf_params = self.xinference_net( samples )
+        sample_z = sample_latent( inf_params )
+        gen_params = self.xgenerative_net( sample_z  )
+        reconstruction_loss = self.distribution.loss( gen_params, samples )
+        logpz = nb.log_normal_pdf(sample_z, inf_params[:,:,:,:,0]*0.0, inf_params[:,:,:,:,0]*0. )
+        logqz_x = nb.log_normal_pdf(sample_z, inf_params[:,:,:,:,0], inf_params[:,:,:,:,1] )
         kl_loss = logqz_x - logpz
-        loss = tf.reduce_mean( l1 + kl_loss )
+        loss = tf.reduce_mean( reconstruction_loss + kl_loss )
         return loss
             
     def sample( self, test_z=None ):
