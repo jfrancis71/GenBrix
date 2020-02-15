@@ -105,9 +105,9 @@ class RealGauss(Distribution):
         channel_shape = tf.shape( channel )
         assert( len( channel.shape ) == 4 )
         logits_parameters_output = reshape_channel_to_parameters( channel, 2 )
-        return np.random.normal(
-            logits_parameters_output[:,:,:,:,0],
-            np.sqrt( np.exp( logits_parameters_output[:,:,:,:,1] ) ) )
+        logits_params_shape = logits_parameters_output.shape
+        random_sample = tf.random.normal( shape = logits_params_shape[0:4] )
+        return tf.sqrt( tf.exp( logits_parameters_output[:,:,:,:,1] ) ) * random_sample + logits_parameters_output[:,:,:,:,0]
 
 class Discrete(Distribution):
 
