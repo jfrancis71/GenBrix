@@ -7,6 +7,7 @@ def sample_latent( z1 ):
     mean_sample = z1[:,:,:,:,0]
     logvar_sample = z1[:,:,:,:,1]
     random_sample = tf.random.normal( shape = logvar_sample.shape )
+#    return tf.sqrt( tf.exp( logvar_sample ) ) * random_sample + mean_sample
     return tf.exp( logvar_sample ) * random_sample + mean_sample
 
 class VAEModel():
@@ -42,12 +43,12 @@ class DefaultVAEModel( VAEModel ):
             tf.keras.layers.Conv2D( 
                 filters=500, kernel_size=1, padding='SAME', activation='relu' ),
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense( units=8*2, activation=None),
-            tf.keras.layers.Reshape( target_shape=(1,1,8,2))
+            tf.keras.layers.Dense( units=64*2, activation=None),
+            tf.keras.layers.Reshape( target_shape=(1,1,64,2))
 ])
 
-    def sample_latent():
-        return np.random.normal( np.zeros( [ 1, 1, 1, 8 ] ), np.ones( [ 1, 1, 1, 8 ] ) )
+    def sample_latent( self ):
+        return np.random.normal( np.zeros( [ 1, 1, 1, 64 ] ), np.ones( [ 1, 1, 1, 64 ] ) )
 
 #This is a convolution latent variable version of Tensorflow demo example
 class ConvVAEModel( VAEModel ):
@@ -87,6 +88,7 @@ class VariationalAutoencoder(nb.Model):
         self.xinference_net = vae_model.inference_net()
         self.xgenerative_net = vae_model.generative_net( image_dims, distribution.no_of_parameters() )
         self.distribution = distribution
+        self.vae_model = vae_model
 
     def loss( self, samples ):
         inf_params = self.xinference_net( samples )
@@ -102,7 +104,7 @@ class VariationalAutoencoder(nb.Model):
     def sample( self, test_z=None ):
         if test_z is None:
 #            test_z = np.random.normal( np.zeros( [ 1, 1, 1, 50 ] ), np.ones( [ 1, 1, 1, 50 ] ) )
-            test_z = vae_model.sample_latent()
+            test_z = self.vae_model.sample_latent()
         return self.distribution.sample( self.xgenerative_net( test_z ) )
     
     def get_trainable_variables( self ):

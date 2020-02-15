@@ -29,11 +29,11 @@ class Model:
             count += 1
         return mean/count
     
-    def train( self, samples, no_epoch=10, learning_rate=.0001, logging=False ):
+    def train( self, samples, no_epoch=10, learning_rate=.0001, log_dir=None ):
         optimizer = tf.keras.optimizers.Adam(learning_rate)
         print( "Initial", "Training loss ", self.loss( samples[:128] ) )
-        if logging is True:
-            log_writer = tf.summary.create_file_writer("./log")
+        if log_dir is not None:
+            log_writer = tf.summary.create_file_writer(log_dir)
             with log_writer.as_default():
                 self.train_loop( optimizer, samples, no_epoch, log_writer )
         else:
