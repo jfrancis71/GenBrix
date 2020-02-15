@@ -77,7 +77,7 @@ class ConditionalPixelCNN(nb.Distribution):
             self.prediction_output_masks[x] = np.reshape( prediction_parameter_masks, [ dims[0], dims[1], dims[2]*self.distribution.no_of_parameters() ] )
 
     def no_of_parameters( self ):
-        return 1
+        return 1 
 
 # It predicts distribution parameters, but in an autoregressive fashion, ie in terms of predicting samples, some of the
 # info from sample is used.
@@ -105,7 +105,7 @@ class ConditionalPixelCNN(nb.Distribution):
     def sample( self, conditional ):
         shape = tf.shape( conditional )
         assert( len( conditional.shape ) == 4 )
-        no_image_channels = tf.math.floordiv( shape[3], 1 )
+        no_image_channels = tf.math.floordiv( shape[3], self.no_of_parameters() )
         image = np.zeros( [ 1, shape[1], shape[2], no_image_channels ] )
         for l in range(4*no_image_channels):
             info = tf.concat( [ image, conditional ],axis=3 )
