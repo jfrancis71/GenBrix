@@ -3,13 +3,6 @@ import numpy as np
 
 from GenBrix import NBModel as nb
 
-def sample_latent( z1 ):
-    mean_sample = z1[:,:,:,:,0]
-    logvar_sample = z1[:,:,:,:,1]
-    random_sample = tf.random.normal( shape = logvar_sample.shape )
-#    return tf.sqrt( tf.exp( logvar_sample ) ) * random_sample + mean_sample
-    return tf.exp( logvar_sample ) * random_sample + mean_sample
-
 class VAEModel():
 
     def generative_net( image_dims, no_of_parameters ):
@@ -44,7 +37,7 @@ class DefaultVAEModel( VAEModel ):
                 filters=500, kernel_size=1, padding='SAME', activation='relu' ),
             tf.keras.layers.Flatten(),
             tf.keras.layers.Dense( units=64*2, activation=None),
-            tf.keras.layers.Reshape( target_shape=(1,1,64,2))
+            tf.keras.layers.Reshape( target_shape=(1,1,64*2))
 ])
 
     def sample_latent( self ):
@@ -89,10 +82,13 @@ class VariationalAutoencoder(nb.Model):
         self.xgenerative_net = vae_model.generative_net( image_dims, distribution.no_of_parameters() )
         self.distribution = distribution
         self.vae_model = vae_model
+        self.latent_distribution = nb.RealGauss()
 
     def loss( self, samples ):
-        inf_params = self.xinference_net( samples )
-        sample_z = sample_latent( inf_params )
+        inf = self.xinference_net( samples )
+        inf_params = nb.reshape_channel_to_parameters( inf, 2 )
+        sample_z = self.latent_distribution.sample( inf )
+        
         gen_params = self.xgenerative_net( sample_z  )
         reconstruction_loss = self.distribution.loss( gen_params, samples )
         logpz = nb.log_normal_pdf(sample_z, inf_params[:,:,:,:,0]*0.0, inf_params[:,:,:,:,0]*0. )
@@ -103,7 +99,6 @@ class VariationalAutoencoder(nb.Model):
             
     def sample( self, test_z=None ):
         if test_z is None:
-#            test_z = np.random.normal( np.zeros( [ 1, 1, 1, 50 ] ), np.ones( [ 1, 1, 1, 50 ] ) )
             test_z = self.vae_model.sample_latent()
         return self.distribution.sample( self.xgenerative_net( test_z ) )
     
