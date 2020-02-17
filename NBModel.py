@@ -57,11 +57,12 @@ class Model:
                 tf.summary.scalar( 'training_loss', train_loss_value, step=epoch )
                 tf.summary.scalar( 'validation_loss', validation_loss_value, step=epoch )
                 samp = self.sample()
+                valid = self.loss( validation_set, "validation", epoch=epoch )
                 tf.summary.image( 'sample', samp.astype(np.float32) , step=epoch )
                 tf.summary.image( 'data sample', samples[:1], step=epoch)
     def sample():
         return "unimplemented"
-    def loss( samples ):
+    def loss( samples, logging_context=None, epoch=None ):
         return "unimplemented"
 
     def apply_gradients( self, optimizer, samples ):
@@ -168,7 +169,7 @@ class NBModel(Model):
         self.array = tf.Variable(
             np.zeros( dims ).astype('float32') )
     
-    def loss( self, samples ):
+    def loss( self, samples, logging_context=None, epoch=None ):
         xbroadcast_array = broadcast_array( self.array, samples )
         return self.distribution.loss( xbroadcast_array, samples )
 

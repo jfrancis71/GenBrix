@@ -85,7 +85,7 @@ class VariationalAutoencoder(nb.Model):
         self.vae_model = vae_model
         self.latent_distribution = nb.RealGauss()
 
-    def loss( self, samples ):
+    def loss( self, samples, logging_context=None, epoch=None ):
         inf = self.xinference_net( samples )
         inf_params = nb.reshape_channel_to_parameters( inf, 2 )
         sample_z = self.latent_distribution.sample( inf )
@@ -96,6 +96,9 @@ class VariationalAutoencoder(nb.Model):
         logqz_x = nb.log_normal_pdf(sample_z, inf_params[:,:,:,:,0], inf_params[:,:,:,:,1] )
         kl_loss = logqz_x - logpz
         loss = tf.reduce_mean( reconstruction_loss + kl_loss )
+        if logging_context is not None:
+            tf.summary.scalar( logging_context+"_kl_loss", kl_loss, step=epoch )
+            tf.summary.scalar( logging_context+"_reconstruction_loss", reconstruction_loss, step=epoch )
         return loss
             
     def sample( self, test_z=None ):

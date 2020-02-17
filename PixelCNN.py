@@ -49,7 +49,7 @@ class PixelCNN(nb.Model):
         self.distribution = ConditionalPixelCNN( distribution, dims )
         self.conditional_array = tf.Variable( np.zeros( [ dims[0], dims[1], dims[2] ] ).astype('float32') )
         
-    def loss( self, samples ):
+    def loss( self, samples, logging_context=None, epoch=None ):
         sp = samples.shape
         return self.distribution.loss( tf.broadcast_to( self.conditional_array, [ sp[0], sp[1], sp[2], self.conditional_array.shape[2] ] ), samples )
     
