@@ -15,8 +15,9 @@ class VAEModel():
         return "unimplemented"
 
 class DefaultVAEModel( VAEModel ):
-    def __init__( self ):
+    def __init__( self, latent=64 ):
         super(VAEModel, self).__init__()
+        self.latent = latent
 
     def generative_net( self, image_dims, no_distribution_parameters ):
         return tf.keras.Sequential([
@@ -36,12 +37,12 @@ class DefaultVAEModel( VAEModel ):
             tf.keras.layers.Conv2D( 
                 filters=500, kernel_size=1, padding='SAME', activation='relu' ),
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense( units=64*2, activation=None),
-            tf.keras.layers.Reshape( target_shape=(1,1,64*2))
+            tf.keras.layers.Dense( units=self.latent*2, activation=None),
+            tf.keras.layers.Reshape( target_shape=(1,1,self.latent*2))
 ])
 
     def sample_latent( self ):
-        return np.random.normal( np.zeros( [ 1, 1, 1, 64 ] ), np.ones( [ 1, 1, 1, 64 ] ) )
+        return np.random.normal( np.zeros( [ 1, 1, 1, self.latent ] ), np.ones( [ 1, 1, 1, self.latent ] ) )
 
 #This is a convolution latent variable version of Tensorflow demo example
 class ConvVAEModel( VAEModel ):
