@@ -13,7 +13,7 @@ class PixelVAE(nb.Model):
             self.vae = vae.VariationalAutoencoder( self.cnn, image_dims, vae_model )
 
     def loss( self, samples, logging_context=None, epoch=None ):
-        return self.vae.loss( samples )
+        return self.vae.loss( samples, logging_context, epoch )
     
     def sample( self, test_z=None ):
         return self.vae.sample( test_z )
