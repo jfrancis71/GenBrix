@@ -57,7 +57,7 @@ class ConvVAEModel( VAEModel ):
               filters=64, kernel_size=3, padding='SAME',strides=(2, 2), activation='relu'),
             tf.keras.layers.Flatten(),
             tf.keras.layers.Dense( units=50*2, activation=None),
-            tf.keras.layers.Reshape( target_shape=(1,1,50,2))
+            tf.keras.layers.Reshape( target_shape=(1,1,50*2))
 ])
 
     def generative_net( self, image_dims, no_distribution_parameters ):

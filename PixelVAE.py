@@ -4,10 +4,13 @@ from GenBrix import NBModel as nb
 from GenBrix import PixelCNN as cnn
 
 class PixelVAE(nb.Model):
-    def __init__( self, distribution, image_dims ):
+    def __init__( self, distribution, image_dims, vae_model=None ):
         super(PixelVAE, self).__init__()
         self.cnn = cnn.ConditionalPixelCNN( distribution, image_dims )
-        self.vae = vae.VariationalAutoencoder( self.cnn, image_dims )
+        if vae_model is None:
+            self.vae = vae.VariationalAutoencoder( self.cnn, image_dims )
+        else:
+            self.vae = vae.VariationalAutoencoder( self.cnn, image_dims, vae_model )
 
     def loss( self, samples, logging_context=None, epoch=None ):
         return self.vae.loss( samples )
