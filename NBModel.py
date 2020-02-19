@@ -58,7 +58,7 @@ class Model:
                 tf.summary.scalar( 'validation_loss', validation_loss_value, step=epoch )
                 samp = self.sample()
                 valid = self.loss( validation_set, "validation", epoch=epoch )
-                tf.summary.image( 'sample', samp.astype(np.float32) , step=epoch )
+                tf.summary.image( 'sample', samp, step=epoch )
                 tf.summary.image( 'data sample', samples[:1], step=epoch)
     def sample():
         return "unimplemented"
