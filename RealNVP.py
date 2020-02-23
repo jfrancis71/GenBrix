@@ -141,10 +141,13 @@ class RealNVP(nb.Model):
         [ transformed5, jacobian5 ] = self.coupling_layer2.forward( transformed4 )
         return [ transformed5, jacobian1 + jacobian2 + jacobian3 + jacobian4 + jacobian5 ]
 
-    def loss( self, input ):
-        [ transformed, jacobian ] = self.forward( input )
+    def loss( self, samples, logging_context=None, epoch=None ):
+        [ transformed, jacobian ] = self.forward( samples )
         transformed_loss = -nb.log_normal_pdf( transformed, transformed*0.0, transformed*0.0)
         jacobian_loss = tf.reduce_mean( -jacobian )
+        if logging_context is not None:
+            tf.summary.scalar( logging_context+"_transformed_loss", transformed_loss, step=epoch )
+            tf.summary.scalar( logging_context+"_jacobian_loss", jacobian_loss, step=epoch )
         return  transformed_loss + jacobian_loss
 
     def reverse( self, input ):
