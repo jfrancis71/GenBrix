@@ -4,13 +4,13 @@ import tensorflow as tf
 from GenBrix import NBModel as nb
 
 def checkerboardmask( shape ):
-    zeros = np.zeros( shape )
+    zeros = np.zeros( shape ).astype( np.float32 )
     zeros[::2,::2,:] = 1.
     zeros[1::2,1::2,:] = 1.
     return zeros
 
 def channelmask( shape ):
-    zeros = np.zeros( shape )
+    zeros = np.zeros( shape ).astype( np.float32 )
     zeros[:,:,::2] = 1.
     return zeros
 
@@ -159,7 +159,7 @@ class RealNVP(nb.Model):
         return transformed1
     
     def sample( self, test_z=None ):
-        z1 = np.random.normal( size = [ 1, round(self.dims[0]/8), round(self.dims[0]/8), self.dims[2]*64 ] )
+        z1 = np.random.normal( size = [ 1, round(self.dims[0]/8), round(self.dims[0]/8), self.dims[2]*64 ] ).astype( np.float32 )
         if test_z is None:
             test_z = z1
         return self.reverse( z1 )

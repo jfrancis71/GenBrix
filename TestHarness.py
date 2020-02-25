@@ -6,6 +6,7 @@ from GenBrix import NBModel as nb
 from GenBrix import VariationalAutoencoder as vae
 from GenBrix import PixelCNN as cnn
 from GenBrix import PixelVAE as pvae
+from GenBrix import RealNVP as realnvp
 
 import tensorflow as tf
 import numpy as np
@@ -74,9 +75,12 @@ def test_pixelvae( image_range=512, no_epoch=10, learning_rate=.0001 ):
     test_model( pvae.PixelVAE( nb.Discrete(), [ 32, 32, 3 ] ), "PixelVAE Discrete", deq_train_col_images[:image_range], test_z, 'col', no_epoch, learning_rate )
 
 
+def test_realnvp( image_range=512, no_epoch=10, learning_rate=.0001 ):
+    test_model( realnvp.RealNVP( [ 32, 32, 3 ] ), "RealNVP", deq_train_col_images[:image_range], None, 'col', no_epoch, learning_rate )
 
 def test( image_range=512, no_epoch=2, learning_rate=.0001 ):
     test_nb( image_range, no_epoch, learning_rate )
     test_vae( image_range, no_epoch, learning_rate )
     test_cnn( image_range, no_epoch, learning_rate )
     test_pixelvae( image_range, no_epoch, learning_rate )
+    test_realnvp( image_range, no_epoch, learning_rate )
