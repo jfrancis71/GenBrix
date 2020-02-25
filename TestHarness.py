@@ -50,7 +50,7 @@ def test_model( model, model_name, images, test_z, type, no_epoch = 10, learning
     plt.imshow( sample, cmap=cmap, vmin=0, vmax=1 )
     plt.show()
 
-test_z = np.random.normal( np.zeros( [ 1, 1, 1, 64 ] ), np.ones( [ 1, 1, 1, 64 ] ) )
+test_z = np.random.normal( np.zeros( [ 1, 1, 1, 64 ] ), np.ones( [ 1, 1, 1, 64 ] ) ).astype( np.float32 )
 
 def test_nb( image_range=512, no_epoch=10, learning_rate=.0001 ):
     test_model( nb.NBModel( nb.Binary(), [ 28, 28, 1 ] ), "NB Bin", train_bin_images[:image_range], None, 'bin', no_epoch, learning_rate )

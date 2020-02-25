@@ -42,7 +42,7 @@ class DefaultVAEModel( VAEModel ):
 ])
 
     def sample_latent( self ):
-        return np.random.normal( np.zeros( [ 1, 1, 1, self.latent ] ), np.ones( [ 1, 1, 1, self.latent ] ) )
+        return np.random.normal( np.zeros( [ 1, 1, 1, self.latent ] ), np.ones( [ 1, 1, 1, self.latent ] ) ).astype( np.float32 )
 
 #This is a convolution latent variable version of Tensorflow demo example
 class ConvVAEModel( VAEModel ):
@@ -74,7 +74,7 @@ class ConvVAEModel( VAEModel ):
     ])
 
     def sample_latent( self ):
-        return np.random.normal( np.zeros( [ 1, 1, 1, 50 ] ), np.ones( [ 1, 1, 1, 50 ] ) )
+        return np.random.normal( np.zeros( [ 1, 1, 1, 50 ] ), np.ones( [ 1, 1, 1, 50 ] ) ).astype( np.float32 )
 
 class VariationalAutoencoder(nb.Model):
     def __init__( self, distribution, image_dims, vae_model=DefaultVAEModel() ):
