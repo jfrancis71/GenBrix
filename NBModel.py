@@ -42,7 +42,7 @@ class Model:
 #   Note, here we're just using the 1st batches of training and validation loss
 #   as performance metrics
     def train_loop( self, optimizer, samples, no_epoch, log_writer ):
-        randomized_samples = tf.random.shuffle( samples )
+        randomized_samples = np.random.permutation( samples )
         train_size = np.round(randomized_samples.shape[0]*0.9).astype(int)
         train_set = randomized_samples[:train_size]
         validation_set = randomized_samples[train_size:min(train_size+128,randomized_samples.shape[0]-1)]
