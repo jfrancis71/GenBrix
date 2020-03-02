@@ -14,9 +14,6 @@ def channelmask( shape ):
     zeros[:,:,::2] = 1.
     return zeros
 
-def stable_scale_net( input ):
-    return tf.tanh( input ) * tf.Variable( np.zeros( input.shape ) ) + tf.Variable( np.zeros( input.shape ) )
-
 class StableScaleNet:
     def __init__( self, dims ):
         self.c1 = tf.Variable( np.zeros( dims ).astype( np.float32 ) )
@@ -42,28 +39,7 @@ def coupling_net( channels ):
             filters=channels, kernel_size=(3,3), padding='SAME' )
 ])
 
-class SqueezeLayer():
-    
-    def forward( self, input ):
-        shape = input.shape
-        newx = tf.round( shape[2]/2 )
-        newy = tf.round( shape[1]/2 )
-        reshapedx = tf.reshape( input, [ shape[0],shape[1], newx, shape[3]*2 ])
-        transposed = tf.transpose( reshapedx, [ 0, 2, 1, 3 ] )
-        reshapedy = tf.reshape( transposed, [ shape[0], newx, newy, shape[3]*4 ])
-        reshaped = tf.transpose( reshapedy, [ 0, 2, 1, 3 ])
-        return [ reshaped, 0.0 ]
-    
-    def reverse( self, input ):
-        shape = input.shape
-        newx = tf.round( shape[2]*2 )
-        newy = tf.round( shape[1]*2 )
-        reshaped = tf.transpose( input, [ 0, 2, 1, 3 ])
-        reshapedy = tf.reshape( reshaped, [ shape[0], shape[2], newy, round(shape[3]/2) ])
-        transposed = tf.transpose( reshapedy, [ 0, 2, 1, 3 ] )
-        reshapedx = tf.reshape( transposed, [ shape[0],newy, newx, round(shape[3]/4) ])
-        return reshapedx
-
+# PassThroughMask has 1 meaning it is a dependent variable, ie won't be changed on this coupling.
 class CouplingLayer():
     def __init__( self, passThroughMask ):
         self.passThroughMask = passThroughMask
@@ -92,6 +68,28 @@ class CouplingLayer():
         return self.cnet1.trainable_variables + self.cnet2.trainable_variables + \
             self.stable1.get_trainable_variables() + \
             self.stable2.get_trainable_variables()
+
+class SqueezeLayer():
+    
+    def forward( self, input ):
+        shape = input.shape
+        newx = tf.round( shape[2]/2 )
+        newy = tf.round( shape[1]/2 )
+        reshapedx = tf.reshape( input, [ shape[0],shape[1], newx, shape[3]*2 ])
+        transposed = tf.transpose( reshapedx, [ 0, 2, 1, 3 ] )
+        reshapedy = tf.reshape( transposed, [ shape[0], newx, newy, shape[3]*4 ])
+        reshaped = tf.transpose( reshapedy, [ 0, 2, 1, 3 ])
+        return [ reshaped, 0.0 ]
+    
+    def reverse( self, input ):
+        shape = input.shape
+        newx = tf.round( shape[2]*2 )
+        newy = tf.round( shape[1]*2 )
+        reshaped = tf.transpose( input, [ 0, 2, 1, 3 ])
+        reshapedy = tf.reshape( reshaped, [ shape[0], shape[2], newy, round(shape[3]/2) ])
+        transposed = tf.transpose( reshapedy, [ 0, 2, 1, 3 ] )
+        reshapedx = tf.reshape( transposed, [ shape[0],newy, newx, round(shape[3]/4) ])
+        return reshapedx
 
 class RealNVPBlock():
     def __init__( self, dims ):

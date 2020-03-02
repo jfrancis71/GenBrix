@@ -48,7 +48,7 @@ class PixelCNN(nb.Model):
         super(PixelCNN,self).__init__()
         self.distribution = ConditionalPixelCNN( distribution, dims )
         self.conditional_array = tf.Variable( np.zeros( [ dims[0], dims[1], dims[2] ] ).astype('float32') )
-        
+
     def loss( self, samples, logging_context=None, epoch=None ):
         sp = samples.shape
         return self.distribution.loss( tf.broadcast_to( self.conditional_array, [ sp[0], sp[1], sp[2], self.conditional_array.shape[2] ] ), samples )
@@ -88,10 +88,6 @@ class ConditionalPixelCNN(nb.Distribution):
             masked = samples * self.information_masks[x]
             conditional_net_input = tf.concat( [ masked, conditional ],axis=3 )
             conditional_net_output = self.pixelcnns[x]( conditional_net_input )
-#            prediction_parameter_masks = np.zeros( [ sp_shape[1], sp_shape[2], sp_shape[3], self.distribution.no_of_parameters() ])
-#            for p in range( self.distribution.no_of_parameters() ):
-#                prediction_parameter_masks[:,:,:,p] = self.prediction_masks[x]
-#            prediction_output_masks = np.reshape( prediction_parameter_masks, [ sp_shape[1], sp_shape[2], sp_shape[3]*self.distribution.no_of_parameters() ] )
             conditional_net_masked_output = self.prediction_output_masks[x] * conditional_net_output
             conditional_net_masked_output_dict[x] = conditional_net_masked_output
         conditional_net_masked_output_stack = tf.stack( [ conditional_net_masked_output for conditional_net_masked_output in conditional_net_masked_output_dict.values() ])
