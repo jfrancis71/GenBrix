@@ -14,16 +14,14 @@ def channelmask( shape ):
     zeros[:,:,::2] = 1.
     return zeros
 
-class StableScaleNet:
+class StableScaleNet(tf.keras.layers.Layer):
     def __init__( self, dims ):
+        super( StableScaleNet, self ).__init__()
         self.c1 = tf.Variable( np.zeros( dims ).astype( np.float32 ) )
         self.c2 = tf.Variable( np.zeros( dims ).astype( np.float32 ) )
         
-    def forward( self, input ):
+    def call( self, input ):
         return tf.tanh( input ) * self.c1 + self.c2
-    
-    def get_trainable_variables( self ):
-        return [ self.c1 ] + [ self.c2 ]
 
 def coupling_net( channels ):
     return tf.keras.Sequential([
@@ -40,17 +38,18 @@ def coupling_net( channels ):
 ])
 
 # PassThroughMask has 1 meaning it is a dependent variable, ie won't be changed on this coupling.
-class CouplingLayer():
+class CouplingLayer(tf.keras.layers.Layer):
     def __init__( self, passThroughMask ):
+        super( CouplingLayer, self ).__init__()
         self.passThroughMask = passThroughMask
         self.cnet1 = coupling_net( passThroughMask.shape[2] )
         self.cnet2 = coupling_net( passThroughMask.shape[2] )
         self.stable1 = StableScaleNet( passThroughMask.shape )
         self.stable2 = StableScaleNet( passThroughMask.shape )
         
-    def forward( self, input ):
-        mu = self.stable1.forward( self.cnet1( self.passThroughMask*input ) )
-        logscale = self.stable2.forward( self.cnet2( self.passThroughMask*input ) )
+    def call( self, input ):
+        mu = self.stable1( self.cnet1( self.passThroughMask*input ) )
+        logscale = self.stable2( self.cnet2( self.passThroughMask*input ) )
         changed = (input-mu)/tf.exp(logscale)
         transformed = self.passThroughMask*input + (1-self.passThroughMask)*changed
         jacobian = -logscale * ( 1 - self.passThroughMask )
@@ -58,16 +57,11 @@ class CouplingLayer():
         return [ transformed, sum_jacobian ]
         
     def reverse( self, input ):
-        mu = self.stable1.forward( self.cnet1( self.passThroughMask*input ) )
-        logscale = self.stable2.forward( self.cnet2( self.passThroughMask*input ) )
+        mu = self.stable1( self.cnet1( self.passThroughMask*input ) )
+        logscale = self.stable2( self.cnet2( self.passThroughMask*input ) )
         changed = (input*tf.exp(logscale)) + mu
         result = self.passThroughMask*input + (1-self.passThroughMask)*changed
         return result
-        
-    def get_trainable_variables( self ):
-        return self.cnet1.trainable_variables + self.cnet2.trainable_variables + \
-            self.stable1.get_trainable_variables() + \
-            self.stable2.get_trainable_variables()
 
 class SqueezeLayer():
     
@@ -91,20 +85,21 @@ class SqueezeLayer():
         reshapedx = tf.reshape( transposed, [ shape[0],newy, newx, round(shape[3]/4) ])
         return reshapedx
 
-class RealNVPBlock():
+class RealNVPBlock( tf.keras.layers.Layer ):
     def __init__( self, dims ):
+        super( RealNVPBlock, self ).__init__()
         self.coupling_layer1 = CouplingLayer( checkerboardmask( dims ) )
         self.coupling_layer2 = CouplingLayer( 1-checkerboardmask( dims ) )
         self.squeeze_layer = SqueezeLayer()
         self.coupling_layer3 = CouplingLayer( channelmask( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] ) )
         self.coupling_layer4 = CouplingLayer( 1-channelmask( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] ) )
         
-    def forward( self, input ):
-        [ transformed1, jacobian1 ] = self.coupling_layer1.forward( input )
-        [ transformed2, jacobian2 ] = self.coupling_layer2.forward( transformed1 )
+    def call( self, input ):
+        [ transformed1, jacobian1 ] = self.coupling_layer1( input )
+        [ transformed2, jacobian2 ] = self.coupling_layer2( transformed1 )
         [ transformed3, jacobian3 ] = self.squeeze_layer.forward( transformed2 )
-        [ transformed4, jacobian4 ] = self.coupling_layer3.forward( transformed3 )
-        [ transformed5, jacobian5 ] = self.coupling_layer4.forward( transformed4 )
+        [ transformed4, jacobian4 ] = self.coupling_layer3( transformed3 )
+        [ transformed5, jacobian5 ] = self.coupling_layer4( transformed4 )
         return [ transformed5, jacobian1 + jacobian2 + jacobian3 + jacobian4 + jacobian5 ]
 
     def reverse( self, input ):
@@ -114,12 +109,6 @@ class RealNVPBlock():
         transformed2 = self.coupling_layer2.reverse( transformed3 )
         transformed1 = self.coupling_layer1.reverse( transformed2 )
         return transformed1
-    
-    def get_trainable_variables( self ):
-        return self.coupling_layer1.get_trainable_variables() + \
-            self.coupling_layer2.get_trainable_variables() + \
-            self.coupling_layer3.get_trainable_variables() + \
-            self.coupling_layer4.get_trainable_variables()
 
 class RealNVP(nb.Model):
     def __init__( self, dims ):
@@ -132,11 +121,11 @@ class RealNVP(nb.Model):
         self.coupling_layer2 = CouplingLayer( 1-channelmask( [ round(dims[0]/8), round(dims[1]/8), dims[2]*64 ] ) )
 
     def forward( self, input ):
-        [ transformed1, jacobian1 ] = self.realnvp_block1.forward( input )
-        [ transformed2, jacobian2 ] = self.realnvp_block2.forward( transformed1 )
-        [ transformed3, jacobian3 ] = self.realnvp_block3.forward( transformed2 )
-        [ transformed4, jacobian4 ] = self.coupling_layer1.forward( transformed3 )
-        [ transformed5, jacobian5 ] = self.coupling_layer2.forward( transformed4 )
+        [ transformed1, jacobian1 ] = self.realnvp_block1( input )
+        [ transformed2, jacobian2 ] = self.realnvp_block2( transformed1 )
+        [ transformed3, jacobian3 ] = self.realnvp_block3( transformed2 )
+        [ transformed4, jacobian4 ] = self.coupling_layer1( transformed3 )
+        [ transformed5, jacobian5 ] = self.coupling_layer2( transformed4 )
         return [ transformed5, jacobian1 + jacobian2 + jacobian3 + jacobian4 + jacobian5 ]
 
     def loss( self, samples, logging_context=None, epoch=None ):
@@ -164,8 +153,8 @@ class RealNVP(nb.Model):
 
     def get_trainable_variables( self ):
         return \
-            self.realnvp_block1.get_trainable_variables() + \
-            self.realnvp_block2.get_trainable_variables() + \
-            self.realnvp_block3.get_trainable_variables() + \
-            self.coupling_layer1.get_trainable_variables() + \
-            self.coupling_layer2.get_trainable_variables()
+            self.realnvp_block1.trainable_variables + \
+            self.realnvp_block2.trainable_variables + \
+            self.realnvp_block3.trainable_variables + \
+            self.coupling_layer1.trainable_variables + \
+            self.coupling_layer2.trainable_variables
