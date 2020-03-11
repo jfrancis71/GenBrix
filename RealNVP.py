@@ -1,4 +1,6 @@
 
+#Achieves around -3,357 on 19,000 aligned CelebA faces trained for 30 epochs.
+
 import numpy as np
 import tensorflow as tf
 from GenBrix import NBModel as nb
@@ -23,27 +25,27 @@ class StableScaleNet(tf.keras.layers.Layer):
     def call( self, input ):
         return tf.tanh( input ) * self.c1 + self.c2
 
-def coupling_net( channels ):
+def coupling_net( channels, mid_channels ):
     return tf.keras.Sequential([
         tf.keras.layers.Conv2D(
-            filters=16, kernel_size=(3,3), padding='SAME', activation='tanh' ),
+            filters=mid_channels, kernel_size=(3,3), padding='SAME', activation='tanh' ),
         tf.keras.layers.Conv2D(
-            filters=16, kernel_size=(3,3), padding='SAME', activation='tanh' ),
+            filters=mid_channels, kernel_size=(3,3), padding='SAME', activation='tanh' ),
         tf.keras.layers.Conv2D(
-            filters=16, kernel_size=(3,3), padding='SAME', activation='tanh' ),
+            filters=mid_channels, kernel_size=(3,3), padding='SAME', activation='tanh' ),
         tf.keras.layers.Conv2D(
-            filters=16, kernel_size=(3,3), padding='SAME', activation='tanh' ),
+            filters=mid_channels, kernel_size=(3,3), padding='SAME', activation='tanh' ),
         tf.keras.layers.Conv2D(
             filters=channels, kernel_size=(3,3), padding='SAME' )
 ])
 
 # PassThroughMask has 1 meaning it is a dependent variable, ie won't be changed on this coupling.
 class CouplingLayer(tf.keras.layers.Layer):
-    def __init__( self, passThroughMask ):
+    def __init__( self, passThroughMask, mid_channels ):
         super( CouplingLayer, self ).__init__()
         self.passThroughMask = passThroughMask
-        self.cnet1 = coupling_net( passThroughMask.shape[2] )
-        self.cnet2 = coupling_net( passThroughMask.shape[2] )
+        self.cnet1 = coupling_net( passThroughMask.shape[2], mid_channels )
+        self.cnet2 = coupling_net( passThroughMask.shape[2], mid_channels )
         self.stable1 = StableScaleNet( passThroughMask.shape )
         self.stable2 = StableScaleNet( passThroughMask.shape )
         
@@ -86,47 +88,51 @@ class SqueezeLayer():
         return reshapedx
 
 class RealNVPBlock( tf.keras.layers.Layer ):
-    def __init__( self, dims ):
+    def __init__( self, dims, mid_channels ):
         super( RealNVPBlock, self ).__init__()
-        self.coupling_layer1 = CouplingLayer( checkerboardmask( dims ) )
-        self.coupling_layer2 = CouplingLayer( 1-checkerboardmask( dims ) )
+        self.coupling_layer1 = CouplingLayer( checkerboardmask( dims ), mid_channels )
+        self.coupling_layer2 = CouplingLayer( 1-checkerboardmask( dims ), mid_channels )
+        self.coupling_layer3 = CouplingLayer( checkerboardmask( dims ), mid_channels )
         self.squeeze_layer = SqueezeLayer()
-        self.coupling_layer3 = CouplingLayer( channelmask( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] ) )
-        self.coupling_layer4 = CouplingLayer( 1-channelmask( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] ) )
+        self.coupling_layer4 = CouplingLayer( channelmask( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] ), mid_channels*2 )
+        self.coupling_layer5 = CouplingLayer( 1-channelmask( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] ), mid_channels*2 )
+        self.coupling_layer6 = CouplingLayer( channelmask( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] ), mid_channels*2 )
         
     def call( self, input ):
-        [ transformed1, jacobian1 ] = self.coupling_layer1( input )
-        [ transformed2, jacobian2 ] = self.coupling_layer2( transformed1 )
-        [ transformed3, jacobian3 ] = self.squeeze_layer.forward( transformed2 )
-        [ transformed4, jacobian4 ] = self.coupling_layer3( transformed3 )
-        [ transformed5, jacobian5 ] = self.coupling_layer4( transformed4 )
-        return [ transformed5, jacobian1 + jacobian2 + jacobian3 + jacobian4 + jacobian5 ]
+        [ transformed, jacobian1 ] = self.coupling_layer1( input )
+        [ transformed, jacobian2 ] = self.coupling_layer2( transformed )
+        [ transformed, jacobian3 ] = self.coupling_layer3( transformed )
+        [ transformed, jacobian4 ] = self.squeeze_layer.forward( transformed )
+        [ transformed, jacobian5 ] = self.coupling_layer4( transformed )
+        [ transformed, jacobian6 ] = self.coupling_layer5( transformed )
+        [ transformed, jacobian7 ] = self.coupling_layer6( transformed )
+        return [ transformed, jacobian1 + jacobian2 + jacobian3 + jacobian4 + jacobian5 + jacobian6 + jacobian7 ]
 
     def reverse( self, input ):
-        transformed5 = self.coupling_layer4.reverse( input )
-        transformed4 = self.coupling_layer3.reverse( transformed5 )
-        transformed3 = self.squeeze_layer.reverse( transformed4 )
-        transformed2 = self.coupling_layer2.reverse( transformed3 )
-        transformed1 = self.coupling_layer1.reverse( transformed2 )
-        return transformed1
+        transformed = self.coupling_layer6.reverse( input )
+        transformed = self.coupling_layer5.reverse( transformed )
+        transformed = self.coupling_layer4.reverse( transformed )
+        transformed = self.squeeze_layer.reverse( transformed )
+        transformed = self.coupling_layer3.reverse( transformed )
+        transformed = self.coupling_layer2.reverse( transformed )
+        transformed = self.coupling_layer1.reverse( transformed )
+        return transformed
 
 class RealNVP(nb.Model):
     def __init__( self, dims ):
         super(RealNVP, self).__init__()
         self.dims = dims
-        self.realnvp_block1 = RealNVPBlock( dims )
-        self.realnvp_block2 = RealNVPBlock( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] )
-        self.realnvp_block3 = RealNVPBlock( [ round(dims[0]/4), round(dims[1]/4), dims[2]*16 ] )
-        self.coupling_layer1 = CouplingLayer( channelmask( [ round(dims[0]/8), round(dims[1]/8), dims[2]*64 ] ) )
-        self.coupling_layer2 = CouplingLayer( 1-channelmask( [ round(dims[0]/8), round(dims[1]/8), dims[2]*64 ] ) )
+        self.realnvp_block1 = RealNVPBlock( dims, 64 )
+        self.realnvp_block2 = RealNVPBlock( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ], 128 )
+#        self.realnvp_block3 = RealNVPBlock( [ round(dims[0]/4), round(dims[1]/4), dims[2]*16 ] )
+        self.coupling_layer1 = CouplingLayer( 1-channelmask( [ round(dims[0]/4), round(dims[1]/4), dims[2]*16 ] ), 256 )
 
     def forward( self, input ):
-        [ transformed1, jacobian1 ] = self.realnvp_block1( input )
-        [ transformed2, jacobian2 ] = self.realnvp_block2( transformed1 )
-        [ transformed3, jacobian3 ] = self.realnvp_block3( transformed2 )
-        [ transformed4, jacobian4 ] = self.coupling_layer1( transformed3 )
-        [ transformed5, jacobian5 ] = self.coupling_layer2( transformed4 )
-        return [ transformed5, jacobian1 + jacobian2 + jacobian3 + jacobian4 + jacobian5 ]
+        [ transformed, jacobian1 ] = self.realnvp_block1( input )
+        [ transformed, jacobian2 ] = self.realnvp_block2( transformed )
+#        [ transformed, jacobian3 ] = self.realnvp_block3( transformed )
+        [ transformed, jacobian3 ] = self.coupling_layer1( transformed )
+        return [ transformed, jacobian1 + jacobian2 + jacobian3 ]
 
     def loss( self, samples, logging_context=None, epoch=None ):
         [ transformed, jacobian ] = self.forward( samples )
@@ -138,23 +144,20 @@ class RealNVP(nb.Model):
         return  transformed_loss + jacobian_loss
 
     def reverse( self, input ):
-        transformed5 = self.coupling_layer2.reverse( input )
-        transformed4 = self.coupling_layer1.reverse( transformed5 )
-        transformed3 = self.realnvp_block3.reverse( transformed4 )
-        transformed2 = self.realnvp_block2.reverse( transformed3 )
-        transformed1 = self.realnvp_block1.reverse( transformed2 )
-        return transformed1
+        transformed = self.coupling_layer1.reverse( input )
+#        transformed = self.realnvp_block3.reverse( transformed4 )
+        transformed = self.realnvp_block2.reverse( transformed )
+        transformed = self.realnvp_block1.reverse( transformed )
+        return transformed
     
     def sample( self, test_z=None ):
-        z1 = np.random.normal( size = [ 1, round(self.dims[0]/8), round(self.dims[0]/8), self.dims[2]*64 ] ).astype( np.float32 )
+        z1 = np.random.normal( size = [ 1, round(self.dims[0]/4), round(self.dims[0]/4), self.dims[2]*16 ] ).astype( np.float32 )
         if test_z is None:
             test_z = z1
-        return self.reverse( z1 )
+        return tf.math.sigmoid( self.reverse( z1 ) )
 
     def get_trainable_variables( self ):
         return \
             self.realnvp_block1.trainable_variables + \
             self.realnvp_block2.trainable_variables + \
-            self.realnvp_block3.trainable_variables + \
-            self.coupling_layer1.trainable_variables + \
-            self.coupling_layer2.trainable_variables
+            self.coupling_layer1.trainable_variables
