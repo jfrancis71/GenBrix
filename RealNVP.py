@@ -1,5 +1,5 @@
 
-#Achieves around -3,357 on 19,000 aligned CelebA faces trained for 30 epochs.
+#Achieves around -3,111 on 19,000 aligned CelebA faces trained for 30 epochs.
 
 import numpy as np
 import tensorflow as tf
@@ -20,10 +20,9 @@ class StableScaleNet(tf.keras.layers.Layer):
     def __init__( self, dims ):
         super( StableScaleNet, self ).__init__()
         self.c1 = tf.Variable( np.zeros( dims ).astype( np.float32 ) )
-        self.c2 = tf.Variable( np.zeros( dims ).astype( np.float32 ) )
         
     def call( self, input ):
-        return tf.tanh( input ) * self.c1 + self.c2
+        return tf.tanh( input ) * self.c1
 
 def coupling_net( channels, mid_channels ):
     return tf.keras.Sequential([
@@ -46,6 +45,7 @@ class CouplingLayer(tf.keras.layers.Layer):
         self.passThroughMask = passThroughMask
         self.cnet1 = coupling_net( passThroughMask.shape[2], mid_channels )
         self.cnet2 = coupling_net( passThroughMask.shape[2], mid_channels )
+#Intentionally keep in StableScaleNet for mu, it seems to stabilise learning...???
         self.stable1 = StableScaleNet( passThroughMask.shape )
         self.stable2 = StableScaleNet( passThroughMask.shape )
         
@@ -69,23 +69,17 @@ class SqueezeLayer():
     
     def forward( self, input ):
         shape = input.shape
-        newx = tf.round( shape[2]/2 )
-        newy = tf.round( shape[1]/2 )
-        reshapedx = tf.reshape( input, [ shape[0],shape[1], newx, shape[3]*2 ])
-        transposed = tf.transpose( reshapedx, [ 0, 2, 1, 3 ] )
-        reshapedy = tf.reshape( transposed, [ shape[0], newx, newy, shape[3]*4 ])
-        reshaped = tf.transpose( reshapedy, [ 0, 2, 1, 3 ])
-        return [ reshaped, 0.0 ]
-    
-    def reverse( self, input ):
-        shape = input.shape
-        newx = tf.round( shape[2]*2 )
-        newy = tf.round( shape[1]*2 )
-        reshaped = tf.transpose( input, [ 0, 2, 1, 3 ])
-        reshapedy = tf.reshape( reshaped, [ shape[0], shape[2], newy, round(shape[3]/2) ])
-        transposed = tf.transpose( reshapedy, [ 0, 2, 1, 3 ] )
-        reshapedx = tf.reshape( transposed, [ shape[0],newy, newx, round(shape[3]/4) ])
-        return reshapedx
+        tft1 = tf.reshape( input, [ shape[0], shape[1]//2, 2, shape[2]//2, 2, shape[3] ] )
+        tft2 = tf.transpose( tft1, [ 0, 1, 3, 5, 2, 4 ] )
+        tft3 = tf.reshape( tft2, [ shape[0], shape[1]//2, shape[2]//2, shape[3]*4 ])
+        return [ tft3, 0.0 ]
+
+    def reverse( self, tft3 ):
+        shape = tft3.shape
+        tft2 = np.reshape( tft3, [ shape[0], shape[1], shape[2], shape[3]//4, 2, 2 ] )
+        tft1 = np.transpose( tft2, [ 0, 1, 4, 2, 5, 3 ] )
+        input = np.reshape( tft1, [ shape[0], shape[1]*2, shape[2]*2, shape[3]//4 ] )
+        return input
 
 class RealNVPBlock( tf.keras.layers.Layer ):
     def __init__( self, dims, mid_channels ):
