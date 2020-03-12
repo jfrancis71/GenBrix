@@ -1,5 +1,5 @@
 
-#Achieves around -3,111 on 19,000 aligned CelebA faces trained for 30 epochs.
+#Achieves around -3,263 on 19,000 aligned CelebA faces trained for 30 epochs.
 
 import numpy as np
 import tensorflow as tf
@@ -19,7 +19,7 @@ def channelmask( shape ):
 class StableScaleNet(tf.keras.layers.Layer):
     def __init__( self, dims ):
         super( StableScaleNet, self ).__init__()
-        self.c1 = tf.Variable( np.zeros( dims ).astype( np.float32 ) )
+        self.c1 = tf.Variable( np.zeros( dims[2] ).astype( np.float32 ) )
         
     def call( self, input ):
         return tf.tanh( input ) * self.c1
