@@ -1,5 +1,5 @@
 
-#Achieves around -3,263 on 19,000 aligned CelebA faces trained for 30 epochs.
+#Achieves around -2,605 on 19,000 aligned CelebA faces trained for 30 epochs.
 
 import numpy as np
 import tensorflow as tf
@@ -43,15 +43,17 @@ class CouplingLayer(tf.keras.layers.Layer):
     def __init__( self, passThroughMask, mid_channels ):
         super( CouplingLayer, self ).__init__()
         self.passThroughMask = passThroughMask
-        self.cnet1 = coupling_net( passThroughMask.shape[2], mid_channels )
-        self.cnet2 = coupling_net( passThroughMask.shape[2], mid_channels )
+        self.cnet1 = coupling_net( passThroughMask.shape[2]*2, mid_channels )
+#        self.cnet2 = coupling_net( passThroughMask.shape[2], mid_channels )
 #Intentionally keep in StableScaleNet for mu, it seems to stabilise learning...???
         self.stable1 = StableScaleNet( passThroughMask.shape )
         self.stable2 = StableScaleNet( passThroughMask.shape )
         
     def call( self, input ):
-        mu = self.stable1( self.cnet1( self.passThroughMask*input ) )
-        logscale = self.stable2( self.cnet2( self.passThroughMask*input ) )
+        cn = self.cnet1( self.passThroughMask*input )
+        mu1, logvar1 = tf.split( cn, num_or_size_splits=2, axis=3 )
+        mu = self.stable1( mu1 )
+        logscale = self.stable2( logvar1 )
         changed = (input-mu)/tf.exp(logscale)
         transformed = self.passThroughMask*input + (1-self.passThroughMask)*changed
         jacobian = -logscale * ( 1 - self.passThroughMask )
@@ -59,8 +61,10 @@ class CouplingLayer(tf.keras.layers.Layer):
         return [ transformed, sum_jacobian ]
         
     def reverse( self, input ):
-        mu = self.stable1( self.cnet1( self.passThroughMask*input ) )
-        logscale = self.stable2( self.cnet2( self.passThroughMask*input ) )
+        cn = self.cnet1( self.passThroughMask*input )
+        mu1, logvar1 = tf.split( cn, num_or_size_splits=2, axis=3 )
+        mu = self.stable1( mu1 )
+        logscale = self.stable2( logvar1 )
         changed = (input*tf.exp(logscale)) + mu
         result = self.passThroughMask*input + (1-self.passThroughMask)*changed
         return result
