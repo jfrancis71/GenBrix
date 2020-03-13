@@ -1,5 +1,5 @@
 
-#Achieves around -1,959 on 19,000 aligned CelebA faces trained for 30 epochs.
+#Achieves around -2,048 on 19,000 aligned CelebA faces trained for 30 epochs.
 
 import numpy as np
 import tensorflow as tf
@@ -26,6 +26,7 @@ class StableScaleNet(tf.keras.layers.Layer):
 
 def coupling_net( channels, mid_channels ):
     return tf.keras.Sequential([
+        tf.keras.layers.BatchNormalization(),
         tf.keras.layers.Conv2D(
             filters=mid_channels, kernel_size=(3,3), padding='SAME', activation='tanh' ),
         tf.keras.layers.Conv2D(
@@ -71,18 +72,33 @@ class CouplingLayer(tf.keras.layers.Layer):
 
 class SqueezeLayer():
     
-    def forward( self, input ):
+    def forward( self, input, alt_order=False ):
         shape = input.shape
-        tft1 = tf.reshape( input, [ shape[0], shape[1]//2, 2, shape[2]//2, 2, shape[3] ] )
-        tft2 = tf.transpose( tft1, [ 0, 1, 3, 5, 2, 4 ] )
-        tft3 = tf.reshape( tft2, [ shape[0], shape[1]//2, shape[2]//2, shape[3]*4 ])
+        if ( alt_order == False ):
+            tft1 = tf.reshape( input, [ shape[0], shape[1]//2, 2, shape[2]//2, 2, shape[3] ] )
+            tft2 = tf.transpose( tft1, [ 0, 1, 3, 5, 2, 4 ] )
+            tft3 = tf.reshape( tft2, [ shape[0], shape[1]//2, shape[2]//2, shape[3]*4 ])
+        else:
+            spl = tf.reshape( input, [ shape[0], shape[1]//2, 2, shape[2]//2, 2, shape[3]])
+            tp = tf.transpose( spl, [ 0, 2, 4, 1, 3, 5])
+            tp1 = tf.reshape( tp, [ shape[0], 4, shape[1]//2, shape[2]//2, shape[3] ])
+            spl1 = tf.unstack( tp1, axis = 1 )
+            tft3 = tf.concat( [ spl1[0], spl1[3], spl1[1], spl1[2] ], axis=3 )
         return [ tft3, 0.0 ]
 
-    def reverse( self, tft3 ):
+    def reverse( self, tft3, alt_order=False ):
         shape = tft3.shape
-        tft2 = np.reshape( tft3, [ shape[0], shape[1], shape[2], shape[3]//4, 2, 2 ] )
-        tft1 = np.transpose( tft2, [ 0, 1, 4, 2, 5, 3 ] )
-        input = np.reshape( tft1, [ shape[0], shape[1]*2, shape[2]*2, shape[3]//4 ] )
+        if ( alt_order == False ):
+            tft2 = tf.reshape( tft3, [ shape[0], shape[1], shape[2], shape[3]//4, 2, 2 ] )
+            tft1 = tf.transpose( tft2, [ 0, 1, 4, 2, 5, 3 ] )
+            input = tf.reshape( tft1, [ shape[0], shape[1]*2, shape[2]*2, shape[3]//4 ] )
+        else:
+            spl1 = tf.split( tft3, num_or_size_splits=4, axis=3 )
+            tp1 = tf.stack( [ spl1[0], spl1[2], spl1[3], spl1[1] ], axis=1 )
+            tp = tf.reshape( tp1,  [ shape[0], 2, 2, shape[1], shape[2], shape[3]//4 ] )
+            spl = tf.transpose( tp, [ 0, 3, 1, 4, 2, 5 ] )
+            input = tf.reshape( spl, [ shape[0], shape[1]*2, shape[2]*2, shape[3]//4 ] )
+
         return input
 
 class RealNVPBlock( tf.keras.layers.Layer ):
@@ -105,10 +121,14 @@ class RealNVPBlock( tf.keras.layers.Layer ):
         [ transformed, jacobian5 ] = self.coupling_layer4( transformed )
         [ transformed, jacobian6 ] = self.coupling_layer5( transformed )
         [ transformed, jacobian7 ] = self.coupling_layer6( transformed )
+        transformed = self.squeeze_layer.reverse( transformed )
+        [ transformed, _ ] = self.squeeze_layer.forward( transformed, alt_order=True )
         return [ transformed, jacobian1 + jacobian2 + jacobian3 + jacobian4 + jacobian5 + jacobian6 + jacobian7 ]
 
     def reverse( self, input ):
-        transformed = self.coupling_layer6.reverse( input )
+        transformed = self.squeeze_layer.reverse( input, alt_order=True )
+        [ transformed, _ ] = self.squeeze_layer.forward( transformed )
+        transformed = self.coupling_layer6.reverse( transformed )
         transformed = self.coupling_layer5.reverse( transformed )
         transformed = self.coupling_layer4.reverse( transformed )
         transformed = self.squeeze_layer.reverse( transformed )
