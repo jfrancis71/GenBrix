@@ -26,7 +26,6 @@ class StableScaleNet(tf.keras.layers.Layer):
 
 def coupling_net( channels, mid_channels ):
     return tf.keras.Sequential([
-        tf.keras.layers.BatchNormalization(),
         tf.keras.layers.Conv2D(
             filters=mid_channels, kernel_size=(3,3), padding='SAME', activation='tanh' ),
         tf.keras.layers.Conv2D(
