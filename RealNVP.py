@@ -1,5 +1,5 @@
 
-#Achieves around -2,048 on 19,000 aligned CelebA faces trained for 30 epochs.
+#Achieves around -2,350 on 19,000 aligned CelebA faces trained for 30 epochs.
 
 import numpy as np
 import tensorflow as tf
@@ -26,25 +26,32 @@ class StableScaleNet(tf.keras.layers.Layer):
 
 def coupling_net( channels, mid_channels ):
     return tf.keras.Sequential([
+        tf.keras.layers.BatchNormalization(),
         tf.keras.layers.Conv2D(
             filters=mid_channels, kernel_size=(3,3), padding='SAME', activation='tanh' ),
+        tf.keras.layers.BatchNormalization(),
         tf.keras.layers.Conv2D(
             filters=mid_channels, kernel_size=(3,3), padding='SAME', activation='tanh' ),
+
+        tf.keras.layers.BatchNormalization(),
         tf.keras.layers.Conv2D(
             filters=mid_channels, kernel_size=(3,3), padding='SAME', activation='tanh' ),
+
+        tf.keras.layers.BatchNormalization(),
         tf.keras.layers.Conv2D(
             filters=mid_channels, kernel_size=(3,3), padding='SAME', activation='tanh' ),
+        tf.keras.layers.BatchNormalization(),
         tf.keras.layers.Conv2D(
             filters=channels, kernel_size=(3,3), padding='SAME' )
 ])
 
 # PassThroughMask has 1 meaning it is a dependent variable, ie won't be changed on this coupling.
 class CouplingLayer(tf.keras.layers.Layer):
-    def __init__( self, passThroughMask, mid_channels ):
+#type, checkerboard, channel1, channel2
+    def __init__( self, passThroughMask, mid_channels, type ):
         super( CouplingLayer, self ).__init__()
         self.passThroughMask = passThroughMask
         self.cnet1 = coupling_net( passThroughMask.shape[2]*2, mid_channels )
-#        self.cnet2 = coupling_net( passThroughMask.shape[2], mid_channels )
 #Intentionally keep in StableScaleNet for mu, it seems to stabilise learning...???
         self.stable1 = StableScaleNet( passThroughMask.shape )
         self.stable2 = StableScaleNet( passThroughMask.shape )
