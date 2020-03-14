@@ -1,5 +1,6 @@
 
-#Achieves around -2,350 on 19,000 aligned CelebA faces trained for 30 epochs.
+#Achieves around -2,482 on 19,000 aligned CelebA faces trained for 30 epochs.
+#albeit -3,314 after 80 epochs
 
 import numpy as np
 import tensorflow as tf
@@ -17,9 +18,9 @@ def channelmask( shape ):
     return zeros
 
 class StableScaleNet(tf.keras.layers.Layer):
-    def __init__( self, dims ):
+    def __init__( self, channels ):
         super( StableScaleNet, self ).__init__()
-        self.c1 = tf.Variable( np.zeros( dims[2] ).astype( np.float32 ) )
+        self.c1 = tf.Variable( np.zeros( channels ).astype( np.float32 ) )
         
     def call( self, input ):
         return tf.tanh( input ) * self.c1
@@ -47,14 +48,13 @@ def coupling_net( channels, mid_channels ):
 
 # PassThroughMask has 1 meaning it is a dependent variable, ie won't be changed on this coupling.
 class CouplingLayer(tf.keras.layers.Layer):
-#type, checkerboard, channel1, channel2
-    def __init__( self, passThroughMask, mid_channels, type ):
+    def __init__( self, passThroughMask, mid_channels ):
         super( CouplingLayer, self ).__init__()
         self.passThroughMask = passThroughMask
         self.cnet1 = coupling_net( passThroughMask.shape[2]*2, mid_channels )
 #Intentionally keep in StableScaleNet for mu, it seems to stabilise learning...???
-        self.stable1 = StableScaleNet( passThroughMask.shape )
-        self.stable2 = StableScaleNet( passThroughMask.shape )
+        self.stable1 = StableScaleNet( passThroughMask.shape[2] )
+        self.stable2 = StableScaleNet( passThroughMask.shape[2] )
         
     def call( self, input ):
         cn = self.cnet1( self.passThroughMask*input )
@@ -75,6 +75,37 @@ class CouplingLayer(tf.keras.layers.Layer):
         changed = (input*tf.exp(logscale)) + mu
         result = self.passThroughMask*input + (1-self.passThroughMask)*changed
         return result
+
+class ChannelCouplingLayer( tf.keras.layers.Layer ):
+    def __init__( self, identity, output_channels, mid_channels ):
+        super( ChannelCouplingLayer, self ).__init__()
+        self.identity = identity
+        self.cnet1 = coupling_net( output_channels, mid_channels )
+        self.stable1 = StableScaleNet( output_channels//2 )
+        self.stable2 = StableScaleNet( output_channels//2 )
+
+    def call( self, input ):
+        [ left, right ] = tf.split( input, num_or_size_splits=2, axis=3 )
+        cn = self.cnet1( left if ( self.identity == 1 ) else right )
+        mu1, logvar1 = tf.split( cn, num_or_size_splits=2, axis=3 )
+        mu = self.stable1( mu1 )
+        logscale = self.stable2( logvar1 )
+        changed = ( (right if ( self.identity == 1 ) else left ) -mu)/tf.exp(logscale)
+        transformed = tf.concat( [ left, changed ] if ( self.identity == 1 ) else [ changed, right ], axis = 3 )
+        sum_jacobian = tf.reduce_sum( -logscale, axis = [ 1, 2, 3 ] )
+        return [ transformed, sum_jacobian ]
+
+    def reverse( self, input ):
+        [ left, right ] = tf.split( input, num_or_size_splits=2, axis=3 )
+        cn = self.cnet1( left if ( self.identity == 1 ) else right )
+        mu1, logvar1 = tf.split( cn, num_or_size_splits=2, axis=3 )
+        mu = self.stable1( mu1 )
+        logscale = self.stable2( logvar1 )
+        changed = ( (right if ( self.identity == 1 ) else left ) )*tf.exp(logscale) + mu
+        transformed = tf.concat( [ left, mu ] if ( self.identity == 1 ) else [ mu, right ], axis = 3 )
+        return transformed
+
+
 
 class SqueezeLayer():
     
@@ -114,9 +145,12 @@ class RealNVPBlock( tf.keras.layers.Layer ):
         self.coupling_layer2 = CouplingLayer( 1-checkerboardmask( dims ), mid_channels )
         self.coupling_layer3 = CouplingLayer( checkerboardmask( dims ), mid_channels )
         self.squeeze_layer = SqueezeLayer()
-        self.coupling_layer4 = CouplingLayer( channelmask( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] ), mid_channels*2 )
-        self.coupling_layer5 = CouplingLayer( 1-channelmask( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] ), mid_channels*2 )
-        self.coupling_layer6 = CouplingLayer( channelmask( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] ), mid_channels*2 )
+#        self.coupling_layer4 = CouplingLayer( channelmask( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] ), mid_channels*2 )
+#        self.coupling_layer5 = CouplingLayer( 1-channelmask( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] ), mid_channels*2 )
+#        self.coupling_layer6 = CouplingLayer( channelmask( [ round(dims[0]/2), round(dims[1]/2), dims[2]*4 ] ), mid_channels*2 )
+        self.coupling_layer4 = ChannelCouplingLayer( 1, dims[2]*4, mid_channels*2 )
+        self.coupling_layer5 = ChannelCouplingLayer( 2, dims[2]*4, mid_channels*2 )
+        self.coupling_layer6 = ChannelCouplingLayer( 1, dims[2]*4, mid_channels*2 )
 
 #Note should really be doing an unsqueeze followed by a squeeze with alt order at end 
     def call( self, input ):
