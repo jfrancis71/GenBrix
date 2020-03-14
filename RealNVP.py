@@ -1,10 +1,11 @@
 
-#Achieves around -2,482 on 19,000 aligned CelebA faces trained for 30 epochs.
-#albeit -3,314 after 80 epochs
+#Achieves around -3,460 on 19,000 aligned CelebA faces trained for 30 epochs.
+#albeit -3,691 after 43 epochs. (All for batch size 64)
 
 import numpy as np
 import tensorflow as tf
 from GenBrix import NBModel as nb
+import tensorflow_addons as tfa
 
 def checkerboardmask( shape ):
     zeros = np.zeros( shape ).astype( np.float32 )
@@ -46,12 +47,71 @@ def coupling_net( channels, mid_channels ):
             filters=channels, kernel_size=(3,3), padding='SAME' )
 ])
 
+class ResidualBlock( tf.keras.layers.Layer ):
+    def __init__(self, in_channels, out_channels):
+        super(ResidualBlock, self).__init__()
+
+        self.in_norm = tf.keras.layers.BatchNormalization()
+        self.in_conv = tfa.layers.WeightNormalization( tf.keras.layers.Conv2D( out_channels, kernel_size=(3,3), padding='SAME', use_bias=False ) )
+
+        self.out_norm = tf.keras.layers.BatchNormalization()
+        self.out_conv = tfa.layers.WeightNormalization( tf.keras.layers.Conv2D( out_channels, kernel_size=(3,3), padding='SAME', use_bias=True ) )
+
+
+    def call(self, x):
+        skip = x
+
+        x = self.in_norm(x)
+        x = tf.nn.relu(x)
+        x = self.in_conv(x)
+
+        x = self.out_norm(x)
+        x = tf.nn.relu(x)
+        x = self.out_conv(x)
+
+        x = x + skip
+
+        return x
+
+class CouplingNet( tf.keras.layers.Layer ):
+    def __init__( self, channels, mid_channels ):
+        super( CouplingNet, self ).__init__()
+
+        self.b1 = tf.keras.layers.BatchNormalization()
+        self.c1 = tf.keras.layers.Conv2D(
+            filters=mid_channels, kernel_size=(3,3), padding='SAME', activation='tanh' )
+
+        self.blocks = [ResidualBlock(mid_channels, mid_channels)
+                                     for _ in range(4)]
+        self.skips = [tfa.layers.WeightNormalization( tf.keras.layers.Conv2D(mid_channels, kernel_size=(1,1), padding='SAME' ) )
+                                    for _ in range(4)]
+
+        self.b2 = tf.keras.layers.BatchNormalization()
+        self.c2 = tf.keras.layers.Conv2D(
+            filters=channels, kernel_size=(1,1), padding='SAME', activation='tanh' )
+
+    def call( self, input ):
+        x = self.b1( input )
+        x = self.c1( x )
+
+        x_skip = x
+
+        for block, skip in zip(self.blocks, self.skips):
+            x = block(x)
+            x_skip += skip(x)
+
+        x = self.b2( x_skip )
+        x = self.c2( x )
+
+        return x
+
+
 # PassThroughMask has 1 meaning it is a dependent variable, ie won't be changed on this coupling.
 class CouplingLayer(tf.keras.layers.Layer):
     def __init__( self, passThroughMask, mid_channels ):
         super( CouplingLayer, self ).__init__()
         self.passThroughMask = passThroughMask
-        self.cnet1 = coupling_net( passThroughMask.shape[2]*2, mid_channels )
+        self.cnet1 = CouplingNet( passThroughMask.shape[2]*2, mid_channels )
 #Intentionally keep in StableScaleNet for mu, it seems to stabilise learning...???
         self.stable1 = StableScaleNet( passThroughMask.shape[2] )
         self.stable2 = StableScaleNet( passThroughMask.shape[2] )
@@ -80,7 +140,7 @@ class ChannelCouplingLayer( tf.keras.layers.Layer ):
     def __init__( self, identity, output_channels, mid_channels ):
         super( ChannelCouplingLayer, self ).__init__()
         self.identity = identity
-        self.cnet1 = coupling_net( output_channels, mid_channels )
+        self.cnet1 = CouplingNet( output_channels, mid_channels )
         self.stable1 = StableScaleNet( output_channels//2 )
         self.stable2 = StableScaleNet( output_channels//2 )
 
