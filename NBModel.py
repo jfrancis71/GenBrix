@@ -21,7 +21,7 @@ class Model:
         return -self.loss( tf.expand_dims( sample, 0 ) )
     
     def log_densities( self, samples ):
-        train_dataset = tf.data.Dataset.from_tensor_slices(samples).shuffle(60000).batch(128)
+        train_dataset = tf.data.Dataset.from_tensor_slices(samples).shuffle(60000).batch(64)
         mean = 0
         count = 0
         for train_x in train_dataset:
@@ -31,7 +31,7 @@ class Model:
     
     def train( self, samples, no_epoch=10, learning_rate=.0001, log_dir=None ):
         optimizer = tf.keras.optimizers.Adam(learning_rate)
-        print( "Initial", "Training loss ", self.loss( samples[:128] ) )
+        print( "Initial", "Training loss ", self.loss( samples[:64] ) )
         if log_dir is not None:
             log_writer = tf.summary.create_file_writer(log_dir)
             with log_writer.as_default():
@@ -45,12 +45,12 @@ class Model:
         randomized_samples = np.random.permutation( samples )
         train_size = np.round(randomized_samples.shape[0]*0.9).astype(int)
         train_set = randomized_samples[:train_size]
-        validation_set = randomized_samples[train_size:min(train_size+128,randomized_samples.shape[0]-1)]
+        validation_set = randomized_samples[train_size:min(train_size+64,randomized_samples.shape[0]-1)]
         for epoch in range(no_epoch):
-            train_dataset = tf.data.Dataset.from_tensor_slices(train_set).shuffle(60000).batch(128)
+            train_dataset = tf.data.Dataset.from_tensor_slices(train_set).shuffle(60000).batch(64)
             for train_x in train_dataset:
                 self.apply_gradients( optimizer, train_x)
-            train_loss_value = self.loss( train_set[:128])
+            train_loss_value = self.loss( train_set[:64])
             validation_loss_value = self.loss( validation_set )
             print( "Epoch", epoch, "Training loss ", train_loss_value, "Validation loss ",validation_loss_value )
             if log_writer is not None:
@@ -111,6 +111,25 @@ class RealGauss(Distribution):
         logits_params_shape = logits_parameters_output.shape
         random_sample = tf.random.normal( shape = logits_params_shape[0:4] )
         return tf.exp( logits_parameters_output[:,:,:,:,1]/2 ) * random_sample + logits_parameters_output[:,:,:,:,0]
+
+class RealStd(Distribution):
+
+    def no_of_parameters( self ):
+        return 1
+
+    def loss( self, channel, samples ):
+        assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
+        logits_parameters_output = reshape_channel_to_parameters( channel, 1 )
+        loss = -log_normal_pdf( samples, logits_parameters_output[:,:,:,:,0], logits_parameters_output[:,:,:,:,0]*0.0 )
+        return loss
+
+    def sample( self, channel ):
+        channel_shape = tf.shape( channel )
+        assert( len( channel.shape ) == 4 )
+        logits_parameters_output = reshape_channel_to_parameters( channel, 1 )
+        logits_params_shape = logits_parameters_output.shape
+        random_sample = tf.random.normal( shape = logits_params_shape[0:4] )
+        return random_sample + logits_parameters_output[:,:,:,:,0]
 
 class Discrete(Distribution):
 
