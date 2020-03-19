@@ -76,6 +76,89 @@ class ConvVAEModel( VAEModel ):
     def sample_latent( self ):
         return np.random.normal( np.zeros( [ 1, 1, 1, 50 ] ), np.ones( [ 1, 1, 1, 50 ] ) ).astype( np.float32 )
 
+#Model taken from https://github.com/yzwxx/vae-celebA/blob/master/model_vae.py
+class YZVAEModel( VAEModel ):
+    def __init__( self ):
+        super(VAEModel, self).__init__()
+        self.trunk_inference = \
+            tf.keras.Sequential([
+
+                tf.keras.layers.Conv2D(
+                    filters=64, kernel_size=(5,5), padding='SAME',strides=(2, 2), activation=None),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU(),
+            
+                tf.keras.layers.Conv2D(
+                    filters=128, kernel_size=(5,5), padding='SAME',strides=(2, 2), activation=None),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU(),
+
+                tf.keras.layers.Conv2D(
+                    filters=256, kernel_size=(5,5), padding='SAME',strides=(2, 2), activation=None),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU(),
+
+                tf.keras.layers.Conv2D(
+                    filters=512, kernel_size=(5,5), padding='SAME',strides=(2, 2), activation=None),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.ReLU() ] )
+
+        inf_dense_mean = tf.keras.layers.Conv2D(
+                filters=512, kernel_size=(1,1), padding='SAME',strides=(1, 1), activation=None )
+
+        inf_dense_logvar = tf.keras.layers.Conv2D(
+                filters=512, kernel_size=(1,1), padding='SAME',strides=(1, 1), activation=None )
+
+
+    def inference_net( self ):
+        input = tf.keras.layers.Input( [ 64, 64, 3 ] )
+        net = self.trunk_inference( input )
+        reshaped = tf.keras.layers.Reshape( target_shape = ( 1, 1, 4*4*512 ) )( net )
+        mean = tf.keras.layers.Conv2D(
+                filters=128, kernel_size=(1,1), padding='SAME',strides=(1, 1), activation=None )( reshaped )
+        logvar = tf.keras.layers.Conv2D(
+                filters=128, kernel_size=(1,1), padding='SAME',strides=(1, 1), activation='softplus' )( reshaped )
+        logvar = logvar + 1e-6
+        out = tf.stack( [ mean, logvar ], axis=4 )
+        reshaped1 = tf.keras.layers.Reshape( target_shape = ( 1, 1, 128*2 ) )( out )
+        model = tf.keras.Model( inputs = input, outputs = reshaped1 )
+        return model
+
+    def generative_net( self, image_dims, no_distribution_parameters ):
+
+        return tf.keras.Sequential([
+
+            tf.keras.layers.Conv2D(
+                    filters=64*4*8*8, kernel_size=(1,1), padding='SAME',strides=(1, 1), activation=None),
+            tf.keras.layers.Reshape( [ 8, 8, 256 ] ),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.ReLU(),
+
+            tf.keras.layers.Conv2DTranspose(
+            filters=64*4, kernel_size=(5,5), strides=(2, 2), padding="SAME", activation=None),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.ReLU(),
+
+            tf.keras.layers.Conv2DTranspose(
+                    filters=64*2, kernel_size=(5,5), strides=(2, 2), padding="SAME", activation=None),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.ReLU(),
+
+            tf.keras.layers.Conv2DTranspose(
+                filters=64, kernel_size=(5,5), strides=(2, 2), padding="SAME", activation=None),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.ReLU(),
+
+            tf.keras.layers.Conv2DTranspose(
+                filters=3*no_distribution_parameters, kernel_size=(5,5), strides=(1, 1), padding="SAME", activation=None) ] )
+
+
+
+    def sample_latent( self ):
+        return np.random.normal( np.zeros( [ 1, 1, 1, 128 ] ), np.ones( [ 1, 1, 1, 128 ] ) ).astype( np.float32 )
+
+
+
 class VariationalAutoencoder(nb.Model):
     def __init__( self, distribution, image_dims, vae_model=DefaultVAEModel() ):
         super(VariationalAutoencoder, self).__init__()
