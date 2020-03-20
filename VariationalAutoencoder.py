@@ -85,22 +85,18 @@ class YZVAEModel( VAEModel ):
 
                 tf.keras.layers.Conv2D(
                     filters=64, kernel_size=(5,5), padding='SAME',strides=(2, 2), activation=None),
-                tf.keras.layers.BatchNormalization(),
                 tf.keras.layers.ReLU(),
             
                 tf.keras.layers.Conv2D(
                     filters=128, kernel_size=(5,5), padding='SAME',strides=(2, 2), activation=None),
-                tf.keras.layers.BatchNormalization(),
                 tf.keras.layers.ReLU(),
 
                 tf.keras.layers.Conv2D(
                     filters=256, kernel_size=(5,5), padding='SAME',strides=(2, 2), activation=None),
-                tf.keras.layers.BatchNormalization(),
                 tf.keras.layers.ReLU(),
 
                 tf.keras.layers.Conv2D(
                     filters=512, kernel_size=(5,5), padding='SAME',strides=(2, 2), activation=None),
-                tf.keras.layers.BatchNormalization(),
                 tf.keras.layers.ReLU() ] )
 
         inf_dense_mean = tf.keras.layers.Conv2D(
@@ -130,27 +126,22 @@ class YZVAEModel( VAEModel ):
             tf.keras.layers.Conv2D(
                     filters=64*4*8*8, kernel_size=(1,1), padding='SAME',strides=(1, 1), activation=None),
             tf.keras.layers.Reshape( [ 8, 8, 256 ] ),
-            tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
 
             tf.keras.layers.Conv2DTranspose(
             filters=64*4, kernel_size=(5,5), strides=(2, 2), padding="SAME", activation=None),
-            tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
 
             tf.keras.layers.Conv2DTranspose(
                     filters=64*2, kernel_size=(5,5), strides=(2, 2), padding="SAME", activation=None),
-            tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
 
             tf.keras.layers.Conv2DTranspose(
                 filters=64, kernel_size=(5,5), strides=(2, 2), padding="SAME", activation=None),
-            tf.keras.layers.BatchNormalization(),
             tf.keras.layers.ReLU(),
 
             tf.keras.layers.Conv2DTranspose(
                 filters=3*no_distribution_parameters, kernel_size=(5,5), strides=(1, 1), padding="SAME", activation=None) ] )
-
 
 
     def sample_latent( self ):
