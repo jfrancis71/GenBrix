@@ -117,8 +117,7 @@ class YZVAEModel( VAEModel ):
         mean = tf.keras.layers.Conv2D(
                 filters=128, kernel_size=(1,1), padding='SAME',strides=(1, 1), activation=None )( reshaped )
         logvar = tf.keras.layers.Conv2D(
-                filters=128, kernel_size=(1,1), padding='SAME',strides=(1, 1), activation='softplus' )( reshaped )
-        logvar = logvar + 1e-6
+                filters=128, kernel_size=(1,1), padding='SAME',strides=(1, 1), activation=None )( reshaped )
         out = tf.stack( [ mean, logvar ], axis=4 )
         reshaped1 = tf.keras.layers.Reshape( target_shape = ( 1, 1, 128*2 ) )( out )
         model = tf.keras.Model( inputs = input, outputs = reshaped1 )
