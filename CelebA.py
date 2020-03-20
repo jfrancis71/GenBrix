@@ -1,5 +1,5 @@
 
-#Achieves .0103, generative pretty good. Lots of variety, nearly everything strongly facelike, albeit
+#Achieves 168, generative pretty good. Lots of variety, nearly everything pretty facelike, albeit
 #features like ears etc indistinct
 
 import matplotlib.pyplot as plt
@@ -40,16 +40,20 @@ class VariationalAutoEncoder(tf.keras.Model):
         z = self.sampling( (z_mean, z_log_var) )
         reconstructed = self.decoder(z)
     # Add KL divergence regularization loss.
-        kl_loss = - 0.5 * tf.reduce_mean(
-            z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1)
-        self.add_loss(kl_loss*0.005)
+        kl_loss = tf.reduce_mean( - 0.5 * tf.reduce_sum(
+            z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1, axis = [ 1, 2, 3 ] ) )
+        self.add_loss(kl_loss)
         return reconstructed
 
 vae = VariationalAutoEncoder()
 
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 
-vae.compile(optimizer, loss=tf.keras.losses.MeanSquaredError())
+def sum_squared_error(y_true, y_pred):
+    return tf.reduce_mean( tf.reduce_sum(tf.square(y_pred - y_true), axis=[1, 2, 3 ]) )
+
+
+vae.compile( optimizer, loss= sum_squared_error )
 
 vae.fit(deq, deq, epochs=60, batch_size=64)
 
