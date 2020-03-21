@@ -106,7 +106,7 @@ class RealGauss(Distribution):
 
     def sample( self, channel ):
         channel_shape = tf.shape( channel )
-        assert( len( channel.shape ) == 4 )
+#        assert( len( channel.shape ) == 4 )
         logits_parameters_output = reshape_channel_to_parameters( channel, 2 )
         logits_params_shape = logits_parameters_output.shape
         random_sample = tf.random.normal( shape = logits_params_shape[0:4] )
@@ -120,7 +120,8 @@ class RealStd(Distribution):
     def loss( self, channel, samples ):
         assert( len( channel.shape ) == 4 and len( samples.shape ) == 4 )
         logits_parameters_output = reshape_channel_to_parameters( channel, 1 )
-        loss = -log_normal_pdf( samples, logits_parameters_output[:,:,:,:,0], logits_parameters_output[:,:,:,:,0]*0.0 )
+#        loss = -log_normal_pdf( samples, logits_parameters_output[:,:,:,:,0], logits_parameters_output[:,:,:,:,0]*0.0 )
+        loss = 0.5 * tf.reduce_mean( tf.reduce_sum( tf.square( samples - logits_parameters_output[:,:,:,:,0] ), axis = [ 1, 2, 3 ] ) )
         return loss
 
     def sample( self, channel ):
@@ -129,7 +130,7 @@ class RealStd(Distribution):
         logits_parameters_output = reshape_channel_to_parameters( channel, 1 )
         logits_params_shape = logits_parameters_output.shape
         random_sample = tf.random.normal( shape = logits_params_shape[0:4] )
-        return random_sample + logits_parameters_output[:,:,:,:,0]
+        return logits_parameters_output[:,:,:,:,0]
 
 class Discrete(Distribution):
 
