@@ -1,11 +1,12 @@
 
-#Achieves 168, generative pretty good. Lots of variety, nearly everything pretty facelike, albeit
+#Achieves 110, generative pretty good. Lots of variety, nearly everything pretty facelike, albeit
 #features like ears etc indistinct
 
 import matplotlib.pyplot as plt
 import numpy as np
 from GenBrix import DataSetUtils
 from GenBrix import VariationalAutoencoder as gen_vae
+from GenBrix import NBModel as nb
 
 deq = DataSetUtils.read_images( max_no = 20000 )
 
@@ -17,9 +18,10 @@ class Sampling(tf.keras.layers.Layer):
   def call(self, inputs):
     z_mean, z_log_var = inputs
     batch = tf.shape(z_mean)[0]
-#    dim = tf.shape(z_mean)[1]
     epsilon = tf.keras.backend.random_normal(shape=(batch, 1, 1, 128 ))
     return z_mean + tf.exp(0.5 * z_log_var) * epsilon
+
+
 
 class VariationalAutoEncoder(tf.keras.Model):
 
@@ -31,6 +33,8 @@ class VariationalAutoEncoder(tf.keras.Model):
         self.encoder = self.vae.inference_net()
         self.decoder = self.vae.generative_net( [ 64, 64, 3 ], 1 )
         self.sampling = Sampling()
+        self.oldVAE = gen_vae.VariationalAutoencoder( nb.RealStd(), [ 64, 64, 3 ], self.vae )
+        self.z_sampler = nb.RealGauss()
 
     def call(self, inputs):
         enc = self.encoder(inputs)
@@ -40,8 +44,7 @@ class VariationalAutoEncoder(tf.keras.Model):
         z = self.sampling( (z_mean, z_log_var) )
         reconstructed = self.decoder(z)
     # Add KL divergence regularization loss.
-        kl_loss = tf.reduce_mean( - 0.5 * tf.reduce_sum(
-            z_log_var - tf.square(z_mean) - tf.exp(z_log_var) + 1, axis = [ 1, 2, 3 ] ) )
+        kl_loss = self.oldVAE.kl_loss( 0, reshape_z )
         self.add_loss(kl_loss)
         return reconstructed
 
@@ -50,7 +53,7 @@ vae = VariationalAutoEncoder()
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 
 def sum_squared_error(y_true, y_pred):
-    return tf.reduce_mean( tf.reduce_sum(tf.square(y_pred - y_true), axis=[1, 2, 3 ]) )
+    return 0.5 * tf.reduce_mean( tf.reduce_sum(tf.square(y_pred - y_true), axis=[1, 2, 3 ]) )
 
 
 vae.compile( optimizer, loss= sum_squared_error )
