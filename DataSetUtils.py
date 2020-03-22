@@ -2,6 +2,7 @@ from PIL import Image
 import glob
 from os.path import expanduser
 import numpy as np
+import tensorflow as tf
 
 def read_cropped_image( filename ):
     f = Image.open( filename )
@@ -22,3 +23,10 @@ def read_images( folder=None, max_no=1000, add_noise=True ):
         ret = samples/255.
     return ret
 
+def return_mnist( max_no = 60000 ):
+    (train_images, _), (test_images, _) = tf.keras.datasets.mnist.load_data()
+    train_images = train_images.reshape(train_images.shape[0], 28, 28, 1).astype('float32')/255
+    train_bin_images = train_images
+    train_bin_images[train_images >= .5] = 1.
+    train_bin_images[train_images < .5] = 0.
+    return train_bin_images
