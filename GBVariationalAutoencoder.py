@@ -1,6 +1,9 @@
-
-#Achieves 110, generative pretty good. Lots of variety, nearly everything pretty facelike, albeit
-#features like ears etc indistinct
+#CelebA, 20,000 images over 60 epochs. Batch size 64
+#RealStd Achieves 110, generative pretty good. Lots of variety, nearly everything pretty facelike,
+#albeit features like ears etc indistinct
+#Discrete achieves 9841, specular, stongly shape-like but mostly not face-like
+#Incidentally if you divide reconstruction loss on Discrete by 10 you get 1277 loss, and much
+#more facelike images.
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,11 +28,11 @@ class Sampling(tf.keras.layers.Layer):
 
 class VariationalAutoEncoder(tf.keras.Model):
 
-    def __init__(self, vae_model, dimensions, latents ):
+    def __init__(self, vae_model, dimensions, latents, no_parameters ):
         super(VariationalAutoEncoder, self).__init__()
         self.vae = vae_model
         self.encoder = self.vae.inference_net()
-        self.decoder = self.vae.generative_net( dimensions, 1 )
+        self.decoder = self.vae.generative_net( dimensions, no_parameters )
         self.sampling = Sampling( latents )
         self.latents = latents
 
@@ -61,14 +64,31 @@ def half_sum_squared_error(y_true, y_pred):
 def cross_entropy( y_true, y_pred ):
     return tf.reduce_mean( tf.reduce_sum( tf.nn.sigmoid_cross_entropy_with_logits( y_true, y_pred ) ) )
 
+scale_const = tf.constant( 10.0 )
+
+def discrete_loss( y_true, y_pred ):
+    logits_parameters_output = nb.reshape_channel_to_parameters( y_pred, 10 )
+    scale_input = tf.multiply( y_true, scale_const )
+    rounds = tf.cast( tf.clip_by_value( tf.round( scale_input ), 0, 9 ), tf.int64 )
+    cross = tf.nn.sparse_softmax_cross_entropy_with_logits( rounds, logits_parameters_output )
+    loss = tf.math.reduce_mean( tf.math.reduce_sum( cross, axis = [ 1,2, 3 ] ) )
+    return loss
+
+
 def create_variational_autoencoder_realstd():
-    vae = VariationalAutoEncoder( vae_models.YZVAEModel(), [64, 64, 3], 128 )
+    vae = VariationalAutoEncoder( vae_models.YZVAEModel(), [64, 64, 3], 128, 1 )
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
     vae.compile( optimizer, loss= half_sum_squared_error )
     return vae
 
+def create_variational_autoencoder_discrete():
+    vae = VariationalAutoEncoder( vae_models.YZVAEModel(), [64, 64, 3], 128, 10 )
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+    vae.compile( optimizer, loss=discrete_loss  )
+    return vae
+
 def create_variational_autoencoder_binary():
-    vae = VariationalAutoEncoder( vae_models.DefaultVAEModel(), [ 28, 28, 1 ], 64 )
+    vae = VariationalAutoEncoder( vae_models.DefaultVAEModel(), [ 28, 28, 1 ], 64, 1 )
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
     vae.compile( optimizer, loss=cross_entropy )
     return vae
