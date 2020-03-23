@@ -1,6 +1,7 @@
 #CelebA, 20,000 images over 60 epochs. Batch size 64
-#RealStd Achieves 110, generative pretty good. Lots of variety, nearly everything pretty facelike,
+#RealStd Achieves 11403, generative pretty good. Lots of variety, nearly everything pretty facelike,
 #albeit features like ears etc indistinct
+#Discrete, not currently used
 #Discrete achieves 9841, specular, stongly shape-like but mostly not face-like
 #Incidentally if you divide reconstruction loss on Discrete by 10 you get 1277 loss, and much
 #more facelike images.
