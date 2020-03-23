@@ -12,6 +12,7 @@ from GenBrix import VAEModels as vae_models
 from GenBrix import NBModel as nb
 
 import tensorflow as tf
+import tensorflow_probability as tfp
 
 class Sampling(tf.keras.layers.Layer):
     """Uses (z_mean, z_log_var) to sample z, the vector encoding a digit."""
@@ -28,11 +29,11 @@ class Sampling(tf.keras.layers.Layer):
 
 class VariationalAutoEncoder(tf.keras.Model):
 
-    def __init__(self, vae_model, dimensions, latents, no_parameters ):
+    def __init__(self, vae_model, dimensions, latents, distribution, distribution_no_parameters ):
         super(VariationalAutoEncoder, self).__init__()
         self.vae = vae_model
         self.encoder = self.vae.inference_net()
-        self.decoder = self.vae.generative_net( dimensions, no_parameters )
+        self.decoder = self.vae.generative_net( dimensions, distribution, distribution_no_parameters )
         self.sampling = Sampling( latents )
         self.latents = latents
 
@@ -56,13 +57,7 @@ z_params[:,:,:,:,0] - 1 )
 
     def sample( self ):
         z = self.vae.sample_latent()
-        return self.decoder( z )
-
-def half_sum_squared_error(y_true, y_pred):
-    return 0.5 * tf.reduce_mean( tf.reduce_sum(tf.square(y_pred - y_true), axis=[1, 2, 3 ]) )
-
-def cross_entropy( y_true, y_pred ):
-    return tf.reduce_mean( tf.reduce_sum( tf.nn.sigmoid_cross_entropy_with_logits( y_true, y_pred ) ) )
+        return self.decoder( z ).sample()
 
 scale_const = tf.constant( 10.0 )
 
@@ -74,11 +69,15 @@ def discrete_loss( y_true, y_pred ):
     loss = tf.math.reduce_mean( tf.math.reduce_sum( cross, axis = [ 1,2, 3 ] ) )
     return loss
 
+def negative_log_likelihood( x, rv_x ):
+    return tf.reduce_mean( tf.reduce_sum( -rv_x.log_prob( x ), axis = [ 1, 2, 3 ] ) )
 
 def create_variational_autoencoder_realstd():
-    vae = VariationalAutoEncoder( vae_models.YZVAEModel(), [64, 64, 3], 128, 1 )
+    distribution = tfp.layers.DistributionLambda(
+        make_distribution_fn=lambda t: tfp.distributions.Normal( loc=t, scale=1 ))
+    vae = VariationalAutoEncoder( vae_models.YZVAEModel(), [64, 64, 3], 128, distribution, 1 )
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
-    vae.compile( optimizer, loss= half_sum_squared_error )
+    vae.compile( optimizer, loss=negative_log_likelihood )
     return vae
 
 def create_variational_autoencoder_discrete():
@@ -88,8 +87,9 @@ def create_variational_autoencoder_discrete():
     return vae
 
 def create_variational_autoencoder_binary():
-    vae = VariationalAutoEncoder( vae_models.DefaultVAEModel(), [ 28, 28, 1 ], 64, 1 )
+    distribution = tfp.layers.DistributionLambda(
+        make_distribution_fn=lambda t: tfp.distributions.Bernoulli( logits=t ) )
+    vae = VariationalAutoEncoder( vae_models.DefaultVAEModel(), [ 28, 28, 1 ], 64, distribution, 1 )
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
-    vae.compile( optimizer, loss=cross_entropy )
+    vae.compile( optimizer, loss=negative_log_likelihood )
     return vae
-

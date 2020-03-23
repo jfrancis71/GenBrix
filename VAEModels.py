@@ -7,7 +7,7 @@ import numpy as np
 
 class VAEModel():
 
-    def generative_net( image_dims, no_of_parameters ):
+    def generative_net( image_dims, distributuin, distribution_no_parameters ):
         return "unimplemented"
 
     def inference_net():
@@ -21,15 +21,16 @@ class DefaultVAEModel( VAEModel ):
         super(VAEModel, self).__init__()
         self.latent = latent
 
-    def generative_net( self, image_dims, no_distribution_parameters ):
+    def generative_net( self, image_dims, distribution, distribution_no_parameters ):
         return tf.keras.Sequential([
             tf.keras.layers.Conv2D(
                 filters=500, kernel_size=1, padding='SAME', activation='relu' ),
             tf.keras.layers.Conv2D(
                 filters=500, kernel_size=1, padding='SAME', activation='relu' ),
             tf.keras.layers.Conv2D(
-                filters=image_dims[0]*image_dims[1]*image_dims[2]*no_distribution_parameters, kernel_size=1, padding='SAME' ),
-            tf.keras.layers.Reshape( target_shape=(image_dims[0],image_dims[1],image_dims[2]*no_distribution_parameters) )
+                filters=image_dims[0]*image_dims[1]*image_dims[2]*distribution_no_parameters, kernel_size=1, padding='SAME' ),
+            tf.keras.layers.Reshape( target_shape=(image_dims[0],image_dims[1],image_dims[2]*distribution_no_parameters ) ),
+            distribution
 ])
 
     def inference_net( self ):
@@ -92,7 +93,7 @@ class YZVAEModel( VAEModel ):
         return model
 
 
-    def generative_net( self, image_dims, no_distribution_parameters ):
+    def generative_net( self, image_dims, distribution, distribution_no_parameters ):
 
         return tf.keras.Sequential([
 
@@ -115,7 +116,8 @@ class YZVAEModel( VAEModel ):
             tf.keras.layers.ReLU(),
 
             tf.keras.layers.Conv2DTranspose(
-                filters=3*no_distribution_parameters, kernel_size=(5,5), strides=(1, 1), padding="SAME", activation=None) ] )
+                filters=3*distribution_no_parameters, kernel_size=(5,5), strides=(1, 1), padding="SAME", activation=None),
+            distribution ] )
 
 
     def sample_latent( self ):
