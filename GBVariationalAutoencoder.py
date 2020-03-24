@@ -53,6 +53,7 @@ z_params[:,:,:,:,0] - 1 )
         reconstructed = self.decoder(z)
     # Add KL divergence regularization loss.
         kl_loss = self.kl_loss( 0, reshape_z )
+        self.add_metric( kl_loss, name = "kl_loss", aggregation='mean' )
         self.add_loss(kl_loss)
         return reconstructed
 
