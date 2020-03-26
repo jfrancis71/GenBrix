@@ -29,7 +29,7 @@ class DefaultVAEModel( VAEModel ):
                 filters=500, kernel_size=1, padding='SAME', activation='relu' ),
             tf.keras.layers.Conv2D(
                 filters=image_dims[0]*image_dims[1]*image_dims[2]*distribution_no_parameters, kernel_size=1, padding='SAME' ),
-            tf.keras.layers.Reshape( target_shape=(image_dims[0],image_dims[1],image_dims[2]*distribution_no_parameters ) ),
+            tf.keras.layers.Reshape( target_shape=(image_dims[0],image_dims[1],image_dims[2],distribution_no_parameters ) ),
             distribution
 ])
 
@@ -117,6 +117,7 @@ class YZVAEModel( VAEModel ):
 
             tf.keras.layers.Conv2DTranspose(
                 filters=3*distribution_no_parameters, kernel_size=(5,5), strides=(1, 1), padding="SAME", activation=None),
+            tf.keras.layers.Reshape( target_shape=(image_dims[0],image_dims[1],image_dims[2],distribution_no_parameters ) ),
             distribution ] )
 
 

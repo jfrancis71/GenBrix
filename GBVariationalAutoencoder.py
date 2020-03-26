@@ -82,6 +82,25 @@ def create_variational_autoencoder_realstd():
     vae.compile( optimizer, loss=negative_log_likelihood )
     return vae
 
+def create_variational_autoencoder_realgauss():
+    distribution = tfp.layers.DistributionLambda(
+#        make_distribution_fn=lambda t: tfp.distributions.Normal( loc=t[...,0], scale= .05 + tf.math.softplus( t[...,1] ) ) )#good at reconstruction, generative not great loss = -17,602, kl_loss 415
+#        make_distribution_fn=lambda t: tfp.distributions.Normal( loc=t[...,0], scale= .05 + tf.math.softplus( t[...,1] ) ) ) # beta=20, loss -13701, kl loss 2506. reconstruction and generation good'ish but noisy
+#        make_distribution_fn=lambda t: tfp.distributions.Normal( loc=t[...,0], scale= .05 + tf.math.softplus( t[...,1] ) ) ) # ok'ish at heneration quite noisy beta = 50 loss = -10658 kl_loss 2997
+#        make_distribution_fn=lambda t: tfp.distributions.Normal( loc=t[...,0], scale= .05 + tf.math.softplus( t[...,1] ) ) ) # ok'ish at generation and reconstruction beta = 150 loss -6,494 kl_loss 2986
+#        make_distribution_fn=lambda t: tfp.distributions.Normal( loc=t[...,0], scale= .05 + tf.math.softplus( t[...,1] ) ) ) # poor at generation, beta=5 but good at reconsruction, loss -17,191 kl_loss 1407
+#        make_distribution_fn=lambda t: tfp.distributions.Normal( loc=t[...,0], scale= 1 + tf.math.exp( 0.5 * t[...,1] ) ) ) # this worked well even though kl loss low at 35
+#        make_distribution_fn=lambda t: tfp.distributions.Normal( loc=t[...,0], scale= .05 + tf.math.exp( 0.5 * t[...,1] ) ) ) # not that great.
+#        make_distribution_fn=lambda t: tfp.distributions.Normal( loc=t[...,0], scale= .1 + tf.math.softplus( 0.5 * t[...,1] ) ) ) # not great.
+        make_distribution_fn=lambda t: tfp.distributions.Normal( loc=t[...,0], scale= 1 ) ) # good reconstruction and sampling subject to noise. kl =35, total loss 11,402
+#        make_distribution_fn=lambda t: tfp.distributions.Normal( loc=t[...,0], scale=tf.math.exp( 0.5 * ( tf.math.softplus( t[...,1] + 4.5 ) -4.5 ) ) ) )
+#        make_distribution_fn=lambda t: tfp.distributions.Normal( loc=t[...,0], scale=1 ) )
+#        make_distribution_fn=lambda t: tfp.distributions.Normal( loc=t[...,0], scale=tf.math.exp( 0.5*t[...,1] ) ) )
+    vae = VariationalAutoEncoder( vae_models.YZVAEModel(), [64, 64, 3], 128, distribution, 2 )
+    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
+    vae.compile( optimizer, loss=negative_log_likelihood )
+    return vae
+
 def create_variational_autoencoder_discrete():
     vae = VariationalAutoEncoder( vae_models.YZVAEModel(), [64, 64, 3], 128, 10 )
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
