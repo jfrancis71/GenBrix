@@ -29,4 +29,4 @@ def return_mnist( max_no = 60000 ):
     train_bin_images = train_images
     train_bin_images[train_images >= .5] = 1.
     train_bin_images[train_images < .5] = 0.
-    return train_bin_images
+    return np.array( tf.random.shuffle( train_bin_images ) )
