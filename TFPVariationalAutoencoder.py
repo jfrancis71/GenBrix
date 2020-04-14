@@ -34,3 +34,6 @@ class VariationalAutoencoder:
     
     def sample( self ):
         return self.decoder( self.vae_model.prior.sample( 1 ) ).sample()[0]
+
+# mymodel = vae.VariationalAutoencoder( distribution=vae.NormalDistribution, vae_model=vae_models.YZVAEModel( latents = 16, q_distribution = tfp.layers.IndependentNormal ) )
+

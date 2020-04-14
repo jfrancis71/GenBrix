@@ -9,10 +9,11 @@ tfpl = tfp.layers
 base_depth = 32
 
 class MNISTVAEModel:
-    def __init__( self ):
-        self.latents = 16
+    def __init__( self, latents = 16, q_distribution = tfpl.MultivariateNormalTriL ):
+        self.latents = latents
         self.prior = tfd.Independent(tfd.Normal(loc=tf.zeros( self.latents ), scale=1),
             reinterpreted_batch_ndims=1)
+        self.q_distribution = q_distribution
 
     def encoder( self ):
         return tfk.Sequential([
@@ -29,11 +30,11 @@ class MNISTVAEModel:
             tfkl.Conv2D(4 * self.latents, 7, strides=1,
                 padding='valid', activation=tf.nn.leaky_relu),
             tfkl.Flatten(),
-            tfkl.Dense(tfpl.MultivariateNormalTriL.params_size(self.latents),
-               activation=None),
-            tfpl.MultivariateNormalTriL(
+            tfkl.Dense( self.q_distribution.params_size(self.latents),
+               activation=None ),
+            self.q_distribution(
                 self.latents,
-                activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior)),
+                activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior) ),
 ])
     def decoder( self, distribution ):
         return tfk.Sequential([
@@ -61,10 +62,11 @@ class MNISTVAEModel:
 # Achieved loss of -11,162 on CelebA after 23 epochs on 20,000 images.
 # Mean is pretty good, sample is a bit noisy espcially around edges, but quite good
 class YZVAEModel():
-    def __init__( self ):
-        self.latents = 16
+    def __init__( self, latents = 16, q_distribution = tfpl.MultivariateNormalTriL ):
+        self.latents = latents
         self.prior = tfd.Independent(tfd.Normal(loc=tf.zeros( self.latents ), scale=1),
             reinterpreted_batch_ndims=1)
+        self.q_distribution = q_distribution
 
     def encoder( self ):
         return tf.keras.Sequential([
@@ -88,10 +90,10 @@ class YZVAEModel():
 
                 tfkl.Flatten(),
 
-		tfkl.Dense( tfpl.MultivariateNormalTriL.params_size( self.latents ) ),
-		tfpl.MultivariateNormalTriL(
+		tfkl.Dense( self.q_distribution.params_size( self.latents ) ),
+		self.q_distribution(
 	            self.latents,
-                    activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior))
+                    activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior) )
 ])
 
     def decoder( self, distribution ):
