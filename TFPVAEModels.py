@@ -8,16 +8,18 @@ tfpl = tfp.layers
 
 base_depth = 32
 
+#Model losely based on: https://colab.research.google.com/github/tensorflow/probability/blob/master/tensorflow_probability/examples/jupyter_notebooks/Probabilistic_Layers_VAE.ipynb
 class MNISTVAEModel:
     def __init__( self, latents = 16, q_distribution = tfpl.MultivariateNormalTriL ):
         self.latents = latents
         self.prior = tfd.Independent(tfd.Normal(loc=tf.zeros( self.latents ), scale=1),
             reinterpreted_batch_ndims=1)
         self.q_distribution = q_distribution
+        self.input_shape = [ 28, 28, 1 ]
 
     def encoder( self ):
         return tfk.Sequential([
-            tfkl.InputLayer(input_shape= [ 28, 28, 1 ] ),
+            tfkl.InputLayer(input_shape= self.input_shape ),
             tfkl.Lambda(lambda x: tf.cast(x, tf.float32) - 0.5),
             tfkl.Conv2D(base_depth, 5, strides=1,
                 padding='same', activation=tf.nn.leaky_relu),
@@ -36,10 +38,12 @@ class MNISTVAEModel:
                 self.latents,
                 activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior) ),
 ])
-    def decoder( self, distribution ):
+    def decoder( self, pixel_distribution ):
+        inst_pixel_distribution = pixel_distribution( self.input_shape )
         return tfk.Sequential([
             tfkl.InputLayer(input_shape=[ self.latents ]),
             tfkl.Reshape([1, 1, self.latents]),
+            #note below layer turns into 7x7x....
             tfkl.Conv2DTranspose(2 * base_depth, 7, strides=1,
                          padding='valid', activation=tf.nn.leaky_relu),
             tfkl.Conv2DTranspose(2 * base_depth, 5, strides=1,
@@ -52,13 +56,14 @@ class MNISTVAEModel:
                          padding='same', activation=tf.nn.leaky_relu),
             tfkl.Conv2DTranspose(base_depth, 5, strides=1,
                          padding='same', activation=tf.nn.leaky_relu),
-            tfkl.Conv2D(filters=distribution[0]*1, kernel_size=5, strides=1,
+            tfkl.Conv2D(filters=inst_pixel_distribution.params_size( 1 ), kernel_size=5, strides=1,
                 padding='same', activation=None),
-            tfkl.Reshape( [ 28, 28, 1, distribution[0] ] ),
-	    tfpl.DistributionLambda( distribution[1] )
+            tfkl.Flatten(),
+	    inst_pixel_distribution
 ])
 
 # 64x64x3 shaped model
+# Losely based on: https://github.com/yzwxx/vae-celebA/blob/master/model_vae.py
 # Achieved loss of -11,162 on CelebA after 23 epochs on 20,000 images.
 # Mean is pretty good, sample is a bit noisy espcially around edges, but quite good
 class YZVAEModel():
@@ -67,10 +72,11 @@ class YZVAEModel():
         self.prior = tfd.Independent(tfd.Normal(loc=tf.zeros( self.latents ), scale=1),
             reinterpreted_batch_ndims=1)
         self.q_distribution = q_distribution
+        self.input_shape = [ 64, 64, 3 ]
 
     def encoder( self ):
         return tf.keras.Sequential([
-                tfkl.InputLayer( input_shape= [ 64, 64, 3 ] ),
+                tfkl.InputLayer( input_shape= self.input_shape ),
             tfkl.Lambda(lambda x: tf.cast(x, tf.float32) - 0.5),
                 tf.keras.layers.Conv2D(
                     filters=64, kernel_size=(5,5), padding='SAME',strides=(2, 2), activation=None),
@@ -96,8 +102,8 @@ class YZVAEModel():
                     activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior) )
 ])
 
-    def decoder( self, distribution ):
-
+    def decoder( self, pixel_distribution ):
+        inst_pixel_distribution = pixel_distribution( self.input_shape )
         return tf.keras.Sequential([
             tfkl.InputLayer( input_shape= [ self.latents ] ),
             tfkl.Reshape( [ 1, 1, self.latents ] ),
@@ -116,7 +122,7 @@ class YZVAEModel():
                 filters=64, kernel_size=(5,5), strides=(2, 2), padding="SAME", activation=tf.nn.leaky_relu),
 
             tf.keras.layers.Conv2DTranspose(
-                filters=3*distribution[0], kernel_size=(5,5), strides=(1, 1), padding="SAME", activation=None),
-            tfkl.Reshape( [ 64, 64, 3, distribution[0] ] ),
-            tfpl.DistributionLambda( distribution[1] )
+                filters=inst_pixel_distribution.params_size( self.input_shape[2] ), kernel_size=(5,5), strides=(1, 1), padding="SAME", activation=None),
+            tfkl.Flatten(),
+            inst_pixel_distribution
 ] )
