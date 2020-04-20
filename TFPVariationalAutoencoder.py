@@ -9,12 +9,10 @@ tfk = tf.keras
 negloglik = lambda x, rv_x: -rv_x.log_prob(x)
 
 class VariationalAutoencoder:
-    def __init__( self, vae_model, pixel_distribution=tfp.layers.IndependentBernoulli ):
+    def __init__( self, vae_model ):
         self.vae_model = vae_model
-        self.encoder = self.vae_model.encoder()
-        self.decoder = self.vae_model.decoder( pixel_distribution )
-        self.vae = tfk.Model(inputs=self.encoder.inputs,
-                outputs=self.decoder(self.encoder.outputs[0]))
+        self.vae = tfk.Model(inputs=self.vae_model.encoder.inputs,
+                outputs=self.vae_model.decoder(self.vae_model.encoder.outputs[0]))
         self.vae.compile(optimizer=tf.optimizers.Adam(learning_rate=1e-3),
             loss=negloglik)
         
@@ -25,7 +23,7 @@ class VariationalAutoencoder:
         return negloglik( tf.expand_dims( sample, 0 ), self.vae( tf.expand_dims( sample, 0 ) ) )
     
     def sample( self ):
-        return self.decoder( self.vae_model.prior.sample( 1 ) ).sample()[0]
+        return self.vae_model.decoder( self.vae_model.prior.sample( 1 ) ).sample()[0]
 
-# mymodel = vae.VariationalAutoencoder( vae_model=vae_models.YZVAEModel( latents = 16, q_distribution = tfp.layers.IndependentNormal ), pixel_distribution=tfp.layers.IndependentBernoulli )
+# mymodel = vae.VariationalAutoencoder( vae_model=vae_models.YZVAEModel( latents = 16, q_distribution = tfp.layers.IndependentNormal, p_distribution_layer_class=tfp.layers.IndependentNormal ) )
 # q_distribution could also be tfp.layers.MultivariateNormalTril
