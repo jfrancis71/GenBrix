@@ -8,6 +8,45 @@ tfpl = tfp.layers
 
 base_depth = 32
 
+
+class FlatVAEModel:
+    def __init__( self, latents = 2, q_distribution = tfpl.IndependentNormal, p_distribution_layer_class = tfp.layers.IndependentNormal ):
+        self.input_shape = [ 1, 1, 1 ]
+        self.latents = latents
+        self.prior = tfd.Independent(tfd.Normal(loc=tf.zeros( self.latents ), scale=1),
+            reinterpreted_batch_ndims=1)
+        self.q_distribution = q_distribution
+        p_distribution_layer = p_distribution_layer_class( self.input_shape )
+
+        self.encoder = \
+            tfk.Sequential([
+                tfkl.InputLayer(input_shape= self.input_shape ),
+                tfkl.Conv2D(base_depth*8, 1, strides=1,
+                    padding='same', activation=tf.nn.leaky_relu),
+                tfkl.Conv2D(base_depth*8, 1, strides=1,
+                    padding='same', activation=tf.nn.leaky_relu),
+                tfkl.Flatten(),
+                tfkl.Dense( self.q_distribution.params_size(self.latents),
+                   activation=None ),
+                self.q_distribution(
+                    self.latents,
+                    activity_regularizer=tfpl.KLDivergenceRegularizer(self.prior) ),
+            ])
+
+        self.decoder = \
+            tfk.Sequential([
+                tfkl.InputLayer(input_shape=[ self.latents ]),
+                tfkl.Reshape([1, 1, self.latents]),
+                tfkl.Conv2D(base_depth*8, 1, strides=1,
+                    padding='same', activation=tf.nn.leaky_relu),
+                tfkl.Conv2D(base_depth*8, 1, strides=1,
+                    padding='same', activation=tf.nn.leaky_relu),
+                tfkl.Conv2D(filters=p_distribution_layer.params_size( 1 ), kernel_size=1, strides=1,
+                    padding='same', activation=None),
+                tfkl.Flatten(),
+	        p_distribution_layer
+            ])
+
 #Model losely based on: https://colab.research.google.com/github/tensorflow/probability/blob/master/tensorflow_probability/examples/jupyter_notebooks/Probabilistic_Layers_VAE.ipynb
 class MNISTVAEModel:
     def __init__( self, latents = 16, q_distribution = tfpl.MultivariateNormalTriL, p_distribution_layer_class = tfp.layers.IndependentBernoulli ):
