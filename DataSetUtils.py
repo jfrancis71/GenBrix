@@ -30,3 +30,12 @@ def return_mnist( max_no = 60000 ):
     train_bin_images[train_images >= .5] = 1.
     train_bin_images[train_images < .5] = 0.
     return np.array( tf.random.shuffle( train_bin_images ) )
+
+def mnist_digits():
+    (train_images, train_labels), _ = tf.keras.datasets.mnist.load_data()
+    train_images = train_images.reshape(train_images.shape[0], 28, 28, 1).astype('float32')/255
+    train_bin_images = train_images
+    train_bin_images[train_images >= .5] = 1.
+    train_bin_images[train_images < .5] = 0.
+    digits = [ train_images[ np.where( train_labels == d ) ] for d in range(10)]
+    return digits
