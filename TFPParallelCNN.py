@@ -104,7 +104,7 @@ class ParallelCNN( tfp.distributions.Distribution ):
         sample = sample + l2
         
         i3 = self.position_layer( sample*self.information_masks[3] )
-        l3 = tf.cast( self.parallelcnns[2]( i3 ).sample()*self.pixel_channel_groups[3], tf.float32 )
+        l3 = tf.cast( self.parallelcnns[3]( i3 ).sample()*self.pixel_channel_groups[3], tf.float32 )
         sample = sample + l3
         
         return sample
