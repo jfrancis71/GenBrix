@@ -1,2 +1,0 @@
-Adding Variational Autoencoder
-All looks well. Learning rate=.0001 seems slow for NBModels, .01 works better. But for VAE, .0001 LR works better. VAE RealGauss with LR=.01 on Dequantised CIFAR-10 was unstable, seems LR too high.
